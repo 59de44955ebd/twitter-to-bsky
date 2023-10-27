@@ -5,24 +5,12 @@
 // @author         59de44955ebd
 // @license        MIT
 // @match          https://twitter.com/*
-// @icon           https://abs.twimg.com/favicons/twitter.2.ico
+// @icon           https://bsky.app/static/favicon-32x32.png
 // @grant          GM_addStyle
+// @updateURL      https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.meta.js
+// @downloadURL    https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js
 // @run-at         document-body
 // ==/UserScript==
-
-/*
- * Things which surprisingly don't need replacing/renaming as of 2023-08-26:
- *
- *   1. "Scheduled Tweets" are still called "Tweets"
- *   2. "Based on your Retweets" in the "For you" tab. (not sure, needs rechecking)
- *
- * Things deliberately left with the new name:
- *
- *   1. "Post" in "Post Analytics" -- a rarely used feature, don't care.
- *   2. "X Corp." in the copyright line of the "footer" (it's in the right sidebar on the web version)
- *   3. Anything on subdomains: about.twitter.com, developer.twitter.com, etc.
- *   4. Tweets counters in "What's happening". It's algorithmic trash, hide it with https://userstyles.world/style/10864/twitter-hide-trends-and-who-to-follow
- */
 
 (function() {
 	'use strict';
