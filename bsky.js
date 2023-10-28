@@ -20,7 +20,17 @@ class BSKY
 	}
 
 	//######################################
-	// login
+	//
+	//######################################
+	set_credentials (bsky_handle, bsky_app_password)
+	{
+		this._bsky_handle = bsky_handle;
+		this._bsky_app_password = bsky_app_password;
+		this._session = null;
+	}
+
+	//######################################
+	//
 	//######################################
 	login ()
 	{
@@ -39,7 +49,7 @@ class BSKY
 	}
 
 	//######################################
-	// refresh
+	//
 	//######################################
 	refresh_session ()
 	{
@@ -94,7 +104,7 @@ class BSKY
 	}
 
 	//######################################
-	// upload_image
+	//
 	//######################################
 	upload_image (file_object)
 	{
@@ -126,7 +136,6 @@ class BSKY
 	//######################################
 	//
 	//######################################
-	// bsky_fetch_embed_url_card(pds_url: str, access_token: str, url: str) -> Dict
 	fetch_embed_url_card (embed_url)
 	{
 	    // the required fields for an embed card
@@ -155,8 +164,6 @@ class BSKY
 			        meta[propName] = ogMetaValue;
 			    }
 			});
-
-	//		console.log('1 meta', meta);
 
 		    if (meta['og:title'])
 		    	card.title = meta['og:title'];
