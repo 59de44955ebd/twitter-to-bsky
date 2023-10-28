@@ -6,7 +6,10 @@
 // @license        MIT
 // @match          https://twitter.com/*
 // @icon           https://bsky.app/static/favicon-32x32.png
+// @grant          GM_setValue
+// @grant          GM_getValue
 // @grant          GM_addStyle
+// @require        https://github.com/59de44955ebd/twitter-to-bsky/raw/main/bsky.js
 // @updateURL      https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.meta.js
 // @downloadURL    https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js
 // @run-at         document-body
@@ -15,20 +18,29 @@
 (function() {
 	'use strict';
 
-    function waitForElement(selector) {
+    // config
+    const LOG_PREFIX = "[BSKY]";
+    //const FAVICON_SELECTOR = 'link[rel="icon"], link[rel="shortcut icon"]';
+    const DIALOG_TWEET_BUTTON_SELECTOR = 'div[data-testid="tweetButton"] > div > span > span';
+    const DIALOG_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > nav';
+
+    function waitForElement(selector)
+    {
         return new Promise(resolve => {
             const queryResult = document.querySelector(selector);
-            if (queryResult) {
+            if (queryResult)
+            {
                 return resolve(queryResult);
             }
             const observer = new MutationObserver(mutations => {
                 const queryResult = document.querySelector(selector);
-                if (queryResult) {
+                if (queryResult)
+                {
                     /*
-				 * Disconnect first, just in case the listeners
-				 * on the returned Promise trigger the observer
-				 * again.
-				 */
+				     * Disconnect first, just in case the listeners
+                     * on the returned Promise trigger the observer
+				     * again.
+				     */
                     observer.disconnect();
                     resolve(queryResult);
                 }
@@ -40,92 +52,79 @@
         });
     }
 
-	//const TWITTER_2012_ICON_URL = 'https://abs.twimg.com/favicons/twitter.2.ico';
+// 	function error(...toLog) {
+// 		console.error(LOG_PREFIX, ...toLog);
+// 	}
 
-	const LOG_PREFIX = "[BSKY]";
-	const FAVICON_SELECTOR = 'link[rel="icon"], link[rel="shortcut icon"]';
+// 	function warn(...toLog) {
+// 		console.warn(LOG_PREFIX, ...toLog);
+// 	}
 
-	//const POSTS_SELECTOR = createPostsSelector();
-
-	const DIALOG_TWEET_BUTTON_SELECTOR = 'div[data-testid="tweetButton"] > div > span > span';
-    const DIALOG_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > div';
-
-	//const RETWEETED_SELECTOR = '[data-testid="socialContext"]';
-	//const SHOW_N_TWEETS_SELECTOR = 'main div div section > div > div > div > div div[role="button"] > .css-1dbjc4n.r-16y2uox.r-1wbh5a2.r-1777fci > div > span';
-
-	function error(...toLog) {
-		console.error(LOG_PREFIX, ...toLog);
-	}
-
-	function warn(...toLog) {
-		console.warn(LOG_PREFIX, ...toLog);
-	}
-
-	function info(...toLog) {
+	function info(...toLog)
+    {
 		console.info(LOG_PREFIX, ...toLog);
 	}
 
-	function debug(...toLog) {
-		console.debug(LOG_PREFIX, ...toLog);
-	}
+// 	function debug(...toLog) {
+// 		console.debug(LOG_PREFIX, ...toLog);
+// 	}
 
-	/*
-	 * Button "Tweet" needs to change dynamically into "Tweet all" when
-	 * more than two tweets are added to the "draft".
-	 *
-	 * This observer detects changes in its text, because the button
-	 * actually gets recreated inside the popup dialog.
-	 */
-	//let tweetButtonObserver = null;
+    let bsky_handle = GM_getValue('bsky_handle', '');
+    let bsky_app_password = GM_getValue('bsky_app_password', '');
+    let bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
+    let bsky_crosspost_checked = GM_getValue('bsky_crosspost_checked', false);
 
-    let bsky_cross_post = true;
+    let bsky_settings_div = null;
 
     /*
-	 * Renames existing "Tweet" buttons in popup dialogs on desktop.
+	 * Adds new "BSKY" checkbox button to toolbar.
 	 */
-    function create_button(toolbarDiv) {
-        const div = document.createElement("label");
-        div.className = 'bsky';
-        //btn.innerText = 'Hello!';
-        //btn.innerHTML = '<label><input type="checkbox"> BSKY</label>';
+    function create_button(toolbarDiv)
+    {
+        const label = document.createElement('label');
+        label.className = 'bsky-checkbox';
 
-        div.style = 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;font-weight: bold;cursor:pointer;';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = bsky_crosspost_checked;
+        checkbox.disabled = !bsky_crosspost_enabled;
+        checkbox.onclick = async function()
+        {
+            bsky_crosspost_checked = this.checked;
+            GM_setValue('bsky_crosspost_checked', bsky_crosspost_checked);
 
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-//         checkbox.name = "name"+json.items[i].name;
-//         checkbox.value = "value";
-//         checkbox.id = "id"+i;
-        checkbox.checked = bsky_cross_post;
-        checkbox.onclick = async function(){
-            bsky_cross_post = this.checked;
-
-            for (let el of document.querySelectorAll('.bsky input')) {
-                el.checked = bsky_cross_post;
+            for (let el of document.querySelectorAll('.bsky-checkbox input')) {
+                el.checked = bsky_crosspost_checked;
             }
 
             //TMP
             let el = toolbarDiv, dialog;
-            while (true) {
+            while (true)
+            {
                 el = el.parentNode;
-                if (!el) {
+                if (!el)
+                {
                     break;
                 }
-                if (el.getAttribute('role') == 'dialog') {
+                if (el.getAttribute('role') == 'dialog')
+                {
                     info('dialog found');
                     dialog = el;
                     break;
                 }
             }
 
-            if (dialog) {
+            if (dialog)
+            {
                 const div_attachments = dialog.querySelector('[data-testid="attachments"]');
                 if (div_attachments)
                 {
-                    for (let img of div_attachments.querySelectorAll('img')) {
+                    for (let img of div_attachments.querySelectorAll('img'))
+                    {
                         info(img.src);
                         const reader = new FileReader();
-                        reader.onload = function(){
+                        reader.onload = function()
+                        {
                             info(this.result); // ArrayBuffer { byteLength: 64630 }
                         }
                         const blob = await fetch(img.src).then(r => r.blob());
@@ -133,9 +132,6 @@
                         reader.readAsArrayBuffer(blob);
                     }
                 }
-            }
-            else {
-                info('dialog not found');
             }
 
 //             const post_btn = toolbarDiv.querySelector('[data-testid="tweetButton"]'); // tweetButtonInline
@@ -155,44 +151,127 @@
 //             }
         }
 
-        div.appendChild(checkbox);
-        div.appendChild(document.createTextNode('BSKY'));
-        toolbarDiv.appendChild(div);
+        label.appendChild(checkbox);
+        //label.appendChild(document.createTextNode('BSKY'));
+
+        const span = document.createElement('span');
+        span.innerText = 'BSKY';
+        label.appendChild(span);
+
+        toolbarDiv.appendChild(label);
     }
 
 	/*
-	 * Renames various oval blue buttons used to send a tweet, i.e. "to tweet".
+	 * Main entry point.
 	 */
-	function main() {
+	function main()
+    {
+        GM_addStyle(`
+.bsky-checkbox input {
+  cursor: pointer;
+}
+.bsky-checkbox  span {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-weight: bold;
+  cursor: pointer;
+}
+.bsky-checkbox  input:disabled,
+.bsky-checkbox  input:disabled + span {
+  color: #ccc;
+  cursor: default;
+}
+.bsky-settings {
+  position: fixed;
+  width: 200px;
+  background: white;
+  padding: 10px;
+  border: 2px solid #0085FF;
+  box-sizing: border-box;
+}
+.bsky-settings input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 10px
+}
+.bsky-nav {
+  width: 1.75rem;
+  height: 1.75rem;
+  background-image:url(https://bsky.app/static/favicon-32x32.png);
+  background-size: contain;
+}
+        `);
 
-// 		waitForElement('a[data-testid="SideNav_NewTweet_Button"] > div > span > div > div > span > span').then(tweetButton => {
-// 			if (tweetButton.innerText == "Post") { // avoid renaming "Reply"
-// 				tweetButton.innerHTML = "Tweet";
-// 				debug("SideNav", tweetButton);
-// 			}
-// 		});
+        waitForElement('nav[role="navigation"]').then(navDiv => {
+            const a = document.createElement('a');
+            a.className = 'bsky-nav';
+            //a.href = '#';
+            a.title = 'BSKY Settings';
+            a.onclick = function(e)
+            {
+                //info(e);
+
+                if (bsky_settings_div)
+                {
+                    return;
+                }
+
+                bsky_settings_div = document.createElement('div');
+                bsky_settings_div.className = 'bsky-settings';
+                bsky_settings_div.style = `left:${e.clientX}px;top:${e.clientY}px;`;
+                bsky_settings_div.innerHTML = `
+                <input type="text" name="bsky_handle" placeholder="BSKY Handle" autocomplete="off" value="${bsky_handle}">
+                <input type="password" name="bsky_app_password" placeholder="BSKY App Password" autocomplete="off" value="${bsky_app_password}">
+                `
+                const btn = document.createElement('button');
+                btn.innerText = 'Save';
+                bsky_settings_div.appendChild(btn);
+                btn.onclick = function(e)
+                {
+                    bsky_handle = bsky_settings_div.querySelector('[name="bsky_handle"]').value;
+                    bsky_app_password = bsky_settings_div.querySelector('[name="bsky_app_password"]').value;
+
+                    document.body.removeChild(bsky_settings_div); //this.parentNode);
+                    bsky_settings_div = null;
+
+                    GM_setValue('bsky_handle', bsky_handle);
+                    GM_setValue('bsky_app_password', bsky_app_password);
+
+                    bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
+
+                    // update diabled
+                    for (let el of document.querySelectorAll('.bsky-checkbox input'))
+                    {
+                        el.disabled = !bsky_crosspost_enabled;
+                    }
+                };
+
+                //info(document.body);
+                document.body.appendChild(bsky_settings_div);
+                return false;
+            };
+            navDiv.appendChild(a);
+        });
 
         waitForElement(DIALOG_TOOLBAR_SELECTOR).then(toolbarDiv => {
 
-            //if (!toolbarDiv.querySelector('.bsky')) {
-                info('First button added');
-                create_button(toolbarDiv);
+            //if (!toolbarDiv.querySelector('.bsky-checkbox ')) {
+            info('First button added');
+            create_button(toolbarDiv);
             //}
 
 			/*
-			 * Separate observer is needed to avoid leaking `tweetButtonObserver`
-			 * and to reconnect `tweetButtonObserver` onto new buttons, when
-			 * they appear.
+			 * Observer that injects new "BSKY" checkbox button into toolbars of dynamically created popup dialogs
 			 */
 			const dialogObserver = new MutationObserver(mutations => {
 
-                //doInsertToolbarButton();
-
                 const toolbarDiv = document.querySelector(DIALOG_TOOLBAR_SELECTOR);
-                if (toolbarDiv == null) {
+                if (toolbarDiv == null)
+                {
                     return;
                 }
-                if (!toolbarDiv.querySelector('.bsky')) {
+                if (!toolbarDiv.querySelector('.bsky-checkbox'))
+                {
                     info('New button added');
                     create_button(toolbarDiv);
                 }
@@ -243,11 +322,6 @@
 //         this._send(...args);
 //     };
 
-	//waitForElement(FAVICON_SELECTOR).then(ignored => {
-		//setFavicon(TWITTER_2012_ICON_URL);
-		//setUpRenamer();
-        main();
-	//});
-
+    main();
 
 })();
