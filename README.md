@@ -8,21 +8,21 @@ While crossposting is generally considered a bad practice, in this case it makes
 
 Crossposting obviously only makes sense for generic posts that e.g. link to a news article or blog post, but not for replies, mentions, DMs etc. which are Twitter/X-specific.
 
-**Usage**
+**Features**
+
+twitter-to-bsky supports plain text posts, posts with one or several attached images and posts containing a media card, based on some entered URL. Videos/GIFs are not supported, because Bluesky doesn't support them yet.
+
+**Setup**
 
 Install and activate the [Violentmonkey](https://violentmonkey.github.io/get-it/) browser addon, then open [this URL - the userscript](https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js) in the browser and allow Violentmonkey to install it.
 
-If you (re-)load the Twitter/X page, it will be "enhanced" with the following new elements:
+If you now (re-)load the Twitter/X page, it will be "enhanced" with the following new elements:
 * a blue Bluesky button at the bottom of the navigation bar that allows to enter you Bluesky credentials (see below) in a small dialog popup.
 * a "BSKY" checkbox in the toolbar of the new post area (both inline and dialog). If the checkbox is checked, pressing the "Post" button will send the same post also to Bluesky.
 
 **App password**
 
-The password you have to enter in the Bluesky settings dialog (see above) is *not* your actual Bluesky password, but instead a so called "app password", in the blueksy webapp navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "BSKY App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "BSKY Handle" field and save the changes.
-
-**Features**
-
-twitter-to-bsky supports plain text posts, posts with one or several images and posts containing a media card, based on some entered URL. Videos/GIFs are not supported, because Bluesky doesn't support them yet.
+The password you have to enter in the Bluesky settings dialog (see above) is **not** your actual Bluesky password, but instead a so called "app password", in the blueksy webapp navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "BSKY App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "BSKY Handle" field and save the changes.
 
 **Screenshots**
 
