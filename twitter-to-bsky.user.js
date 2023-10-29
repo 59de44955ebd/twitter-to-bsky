@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.1
+// @version        0.2
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @license        MIT
@@ -9,7 +9,8 @@
 // @grant          GM_setValue
 // @grant          GM_getValue
 // @grant          GM_addStyle
-// @require        https://github.com/59de44955ebd/twitter-to-bsky/raw/main/bsky.js
+// @grant          GM_xmlhttpRequest
+// @grant          GM_openInTab
 // @updateURL      https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.meta.js
 // @downloadURL    https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js
 // @run-at         document-body
@@ -20,153 +21,30 @@
 
     // config
     const LOG_PREFIX = "[BSKY]";
-    //const FAVICON_SELECTOR = 'link[rel="icon"], link[rel="shortcut icon"]';
-    const DIALOG_TWEET_BUTTON_SELECTOR = 'div[data-testid="tweetButton"] > div > span > span';
-    const DIALOG_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > nav';
 
-    function waitForElement(selector)
-    {
-        return new Promise(resolve => {
-            const queryResult = document.querySelector(selector);
-            if (queryResult)
-            {
-                return resolve(queryResult);
-            }
-            const observer = new MutationObserver(mutations => {
-                const queryResult = document.querySelector(selector);
-                if (queryResult)
-                {
-                    /*
-				     * Disconnect first, just in case the listeners
-                     * on the returned Promise trigger the observer
-				     * again.
-				     */
-                    observer.disconnect();
-                    resolve(queryResult);
-                }
-            });
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        });
-    }
+    const NAV_SELECTOR = 'header nav[role="navigation"]:not(.bsky-navbar)';
+    const POST_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > nav:not(.bsky-toolbar)';
+    const POST_BUTTON_SELECTOR = 'div[data-testid="tweetButton"]:not(.bsky-button), div[data-testid="tweetButtonInline"]:not(.bsky-button)';
 
-// 	function error(...toLog) {
-// 		console.error(LOG_PREFIX, ...toLog);
-// 	}
+    const POST_TEXT_AREA_SELECTOR = '[data-testid="tweetTextarea_0"]';
+    const POST_ATTACHMENTS_SELECTOR = '[data-testid="attachments"]';
 
-// 	function warn(...toLog) {
-// 		console.warn(LOG_PREFIX, ...toLog);
-// 	}
+    const BSKY_PDS_URL = 'https://bsky.social';
+    // this size limit specified in the app.bsky.embed.images lexicon
+    const BSKY_MAX_UPLOAD_BYTES = 1000000;
 
-	function info(...toLog)
-    {
-		console.info(LOG_PREFIX, ...toLog);
-	}
-
-// 	function debug(...toLog) {
-// 		console.debug(LOG_PREFIX, ...toLog);
-// 	}
-
-    let bsky_handle = GM_getValue('bsky_handle', '');
-    let bsky_app_password = GM_getValue('bsky_app_password', '');
-    let bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
-    let bsky_crosspost_checked = GM_getValue('bsky_crosspost_checked', false);
-
-    let bsky_settings_div = null;
-
-    /*
-	 * Adds new "BSKY" checkbox button to toolbar.
-	 */
-    function create_button(toolbarDiv)
-    {
-        const label = document.createElement('label');
-        label.className = 'bsky-checkbox';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = bsky_crosspost_checked;
-        checkbox.disabled = !bsky_crosspost_enabled;
-        checkbox.onclick = async function()
-        {
-            bsky_crosspost_checked = this.checked;
-            GM_setValue('bsky_crosspost_checked', bsky_crosspost_checked);
-
-            for (let el of document.querySelectorAll('.bsky-checkbox input')) {
-                el.checked = bsky_crosspost_checked;
-            }
-
-            //TMP
-            let el = toolbarDiv, dialog;
-            while (true)
-            {
-                el = el.parentNode;
-                if (!el)
-                {
-                    break;
-                }
-                if (el.getAttribute('role') == 'dialog')
-                {
-                    info('dialog found');
-                    dialog = el;
-                    break;
-                }
-            }
-
-            if (dialog)
-            {
-                const div_attachments = dialog.querySelector('[data-testid="attachments"]');
-                if (div_attachments)
-                {
-                    for (let img of div_attachments.querySelectorAll('img'))
-                    {
-                        info(img.src);
-                        const reader = new FileReader();
-                        reader.onload = function()
-                        {
-                            info(this.result); // ArrayBuffer { byteLength: 64630 }
-                        }
-                        const blob = await fetch(img.src).then(r => r.blob());
-                        info(blob); // name, size, type
-                        reader.readAsArrayBuffer(blob);
-                    }
-                }
-            }
-
-//             const post_btn = toolbarDiv.querySelector('[data-testid="tweetButton"]'); // tweetButtonInline
-//             post_btn.onclick = function() {
-//                 let el = toolbarDiv, dialog;
-//                 while (true) {
-//                     el = el.parentNode;
-//                     if (!el)
-//                         break;
-//                     if (el.role == 'dialog') {
-//                         info('dialog found');
-//                         dialog = el;
-//                         break;
-//                     }
-//                 }
-//                 return false;
-//             }
-        }
-
-        label.appendChild(checkbox);
-        //label.appendChild(document.createTextNode('BSKY'));
-
-        const span = document.createElement('span');
-        span.innerText = 'BSKY';
-        label.appendChild(span);
-
-        toolbarDiv.appendChild(label);
-    }
-
-	/*
-	 * Main entry point.
-	 */
-	function main()
-    {
-        GM_addStyle(`
+    const css = `
+.bsky-nav {
+  padding: 12px;
+  cursor: pointer;
+}
+.bsky-nav a {
+  width: 1.75rem;
+  height: 1.75rem;
+  background-image:url(https://bsky.app/static/favicon-32x32.png);
+  background-size: contain;
+  display: block;
+}
 .bsky-checkbox input {
   cursor: pointer;
 }
@@ -182,146 +60,479 @@
 }
 .bsky-settings {
   position: fixed;
-  width: 200px;
+  width: 240px;
   background: white;
   padding: 10px;
   border: 2px solid #0085FF;
   box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13.3333px
 }
-.bsky-settings input {
+.bsky-settings input[type="text"],
+.bsky-settings input[type="password"],
+.bsky-settings label
+{
   display: block;
   box-sizing: border-box;
   width: 100%;
   margin-bottom: 10px
 }
-.bsky-nav {
-  width: 1.75rem;
-  height: 1.75rem;
-  background-image:url(https://bsky.app/static/favicon-32x32.png);
-  background-size: contain;
+/*
+.bsky-button {
+  background-color: #000099 !important;
 }
-        `);
+*/
+`
+    let bsky_handle = GM_getValue('bsky_handle', '');
+    let bsky_app_password = GM_getValue('bsky_app_password', '');
+    let bsky_session = GM_getValue('bsky_session', null);
+    let bsky_open_tabs = GM_getValue('bsky_open_tabs', false);
 
-        waitForElement('nav[role="navigation"]').then(navDiv => {
-            const a = document.createElement('a');
-            a.className = 'bsky-nav';
-            //a.href = '#';
-            a.title = 'BSKY Settings';
-            a.onclick = function(e)
-            {
-                //info(e);
+    let bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
+    let bsky_crosspost_checked = GM_getValue('bsky_crosspost_checked', false);
 
-                if (bsky_settings_div)
-                {
-                    return;
-                }
+    let bsky_settings_div = null;
+    let bsky_client = null;
 
-                bsky_settings_div = document.createElement('div');
-                bsky_settings_div.className = 'bsky-settings';
-                bsky_settings_div.style = `left:${e.clientX}px;top:${e.clientY}px;`;
-                bsky_settings_div.innerHTML = `
-                <input type="text" name="bsky_handle" placeholder="BSKY Handle" autocomplete="off" value="${bsky_handle}">
-                <input type="password" name="bsky_app_password" placeholder="BSKY App Password" autocomplete="off" value="${bsky_app_password}">
-                `
-                const btn = document.createElement('button');
-                btn.innerText = 'Save';
-                bsky_settings_div.appendChild(btn);
-                btn.onclick = function(e)
-                {
-                    bsky_handle = bsky_settings_div.querySelector('[name="bsky_handle"]').value;
-                    bsky_app_password = bsky_settings_div.querySelector('[name="bsky_app_password"]').value;
+    let bsky_card = null;
+    let is_bsky_posted = false;
 
-                    document.body.removeChild(bsky_settings_div); //this.parentNode);
-                    bsky_settings_div = null;
-
-                    GM_setValue('bsky_handle', bsky_handle);
-                    GM_setValue('bsky_app_password', bsky_app_password);
-
-                    bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
-
-                    // update diabled
-                    for (let el of document.querySelectorAll('.bsky-checkbox input'))
-                    {
-                        el.disabled = !bsky_crosspost_enabled;
-                    }
-                };
-
-                //info(document.body);
-                document.body.appendChild(bsky_settings_div);
-                return false;
-            };
-            navDiv.appendChild(a);
-        });
-
-        waitForElement(DIALOG_TOOLBAR_SELECTOR).then(toolbarDiv => {
-
-            //if (!toolbarDiv.querySelector('.bsky-checkbox ')) {
-            info('First button added');
-            create_button(toolbarDiv);
-            //}
-
-			/*
-			 * Observer that injects new "BSKY" checkbox button into toolbars of dynamically created popup dialogs
-			 */
-			const dialogObserver = new MutationObserver(mutations => {
-
-                const toolbarDiv = document.querySelector(DIALOG_TOOLBAR_SELECTOR);
-                if (toolbarDiv == null)
-                {
-                    return;
-                }
-                if (!toolbarDiv.querySelector('.bsky-checkbox'))
-                {
-                    info('New button added');
-                    create_button(toolbarDiv);
-                }
-
-// 				if (document.querySelector('[role="dialog"]') == null) {
-// 					tweetButtonObserver.disconnect();
-// 					tweetButtonObserver = null;
-// 					info("Disconnected tweetButtonObserver");
-// 					dialogObserver.disconnect();
-// 				}
-			});
-
-// 			tweetButtonObserver.observe(document.querySelector('[role="dialog"]'), { childList: true, subtree: true });
-// 			info("Connected tweetButtonObserver");
-
-			dialogObserver.observe(document.body, { childList: true, subtree: true });
-        });
+	const debug = function(...toLog)
+    {
+		console.debug(LOG_PREFIX, ...toLog);
 	}
 
-    //console.log(unsafeWindow.XMLHttpRequest.prototype.onreadystatechange);
-    // https://caps.twitter.com/v2/cards/preview.json?status=https%3A%2F%2Fwww.spiegel.de%2Fpanorama%2Fjustiz%2Fmaine-was-ueber-das-schusswaffenmassakar-von-lewiston-bekannt-ist-a-0e11feb8-8e68-4f39-a2ae-1e035d1bddd5&cards_platform=Web-12&include_cards=true
+    class BSKY
+    {
+        // all parameters optional
+        constructor(bsky_handle, bsky_app_password, bsky_session)
+        {
+            this._bsky_handle = bsky_handle;
+            this._bsky_app_password = bsky_app_password;
+            this._session = bsky_session;
+        }
 
+        set_credentials(bsky_handle, bsky_app_password)
+        {
+            this._bsky_handle = bsky_handle;
+            this._bsky_app_password = bsky_app_password;
+            this._session = null;
+        }
+
+        login()
+        {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: BSKY_PDS_URL + '/xrpc/com.atproto.server.createSession',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    data: JSON.stringify({
+                        identifier: this._bsky_handle,
+                        password: this._bsky_app_password,
+                    }),
+                    onload: (response) => {
+                        const session = JSON.parse(response.responseText);
+                        this._session = session;
+                        resolve(session);
+                    },
+                    onerror: reject,
+                });
+            });
+        }
+
+        refresh_session()
+        {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: BSKY_PDS_URL + '/xrpc/com.atproto.server.refreshSession',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + this._session.refreshJwt,
+                    },
+                    onload: (response) => {
+                        const session = JSON.parse(response.responseText);
+                        this._session = session;
+                        resolve(session);
+                    },
+                    onerror: reject,
+                });
+            });
+        }
+
+        // utility function
+        verify_session()
+        {
+            if (this._session)
+            {
+                return this.refresh_session()
+                    .catch((err) => {
+                    return this.login()
+                });
+            }
+            else
+            {
+                return this.login();
+            }
+        }
+
+        upload_image(image_object)
+        {
+            return fetch(image_object.src)
+            .then(res => res.blob())
+            .then((file_object) => {
+                if (file_object.size > BSKY_MAX_UPLOAD_BYTES)
+                {
+                    throw new Error(`Size of image ${file_object.name} exceeds max. allowed size (${BSKY_MAX_UPLOAD_BYTES})`);
+                }
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        GM_xmlhttpRequest({
+                            method: "POST",
+                            url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.uploadBlob',
+                            headers: {
+                                'Content-Type': file_object.type,
+                                'Authorization': 'Bearer ' + this._session.accessJwt,
+                            },
+                            data: new Uint8Array(reader.result),
+                            onload: (response) => {
+                                resolve(JSON.parse(response.responseText));
+                            },
+                            onerror: reject,
+                        });
+                    };
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(file_object); //image.files[0]);
+                });
+            });
+        }
+
+        upload_image_by_url(image_url)
+        {
+            let image_type;
+        	return fetch(image_url)
+            .then((res) => {
+                image_type = res.headers.get('content-type');
+                return res.arrayBuffer();
+            })
+            .then((buf) => {
+                if (buf.byteLength > BSKY_MAX_UPLOAD_BYTES)
+                {
+                    throw new Error(`Size of image ${image_url} exceeds max. allowed size (${BSKY_MAX_UPLOAD_BYTES})`);
+                }
+                return new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: "POST",
+                        url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.uploadBlob',
+                        headers: {
+                            'Content-Type': image_type,
+                            'Authorization': 'Bearer ' + this._session.accessJwt,
+                        },
+                        data: new Uint8Array(buf),
+                        onload: (response) => {
+                            resolve(JSON.parse(response.responseText));
+                        },
+                        onerror: reject,
+                    });
+                });
+            })
+        }
+
+        create_post(post_text, post_images, post_embed)
+        {
+            const now = (new Date()).toISOString();
+
+            // Required fields that each post must include
+            const post = {
+                '$type': 'app.bsky.feed.post',
+                'text': post_text,
+                'createdAt': now,
+            };
+
+            if (post_images && post_images.images.length)
+            {
+                post.embed = post_images;
+            }
+
+            else if (post_embed)
+            {
+                post.embed = post_embed;
+            }
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.createRecord',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + this._session.accessJwt,
+                    },
+                    data: JSON.stringify({
+                        repo: this._session.did,
+                        collection: 'app.bsky.feed.post',
+                        record: post,
+                    }),
+                    onload: (response) => {
+                        resolve(JSON.parse(response.responseText));
+                    },
+                    onerror: reject,
+                });
+            });
+        }
+    }
+
+    /*
+	 * Adds BSKY icon for changing settings to navbar.
+	 */
+    const extend_navbar = function(nav)
+    {
+        const a = document.createElement('a');
+        a.title = 'BSKY Settings';
+        a.addEventListener('click', function(e)
+        {
+            if (bsky_settings_div)
+            {
+                document.body.removeChild(bsky_settings_div);
+                bsky_settings_div = null;
+                return;
+            }
+
+            const r = a.getBoundingClientRect();
+            bsky_settings_div = document.createElement('div');
+            bsky_settings_div.className = 'bsky-settings';
+            bsky_settings_div.style = `left:${r.right + 5}px;top:${r.top}px;`;
+            bsky_settings_div.innerHTML = `
+                <input type="text" name="bsky_handle" placeholder="BSKY Handle" autocomplete="off" value="${bsky_handle}">
+                <input type="password" name="bsky_app_password" placeholder="BSKY App Password" autocomplete="off" value="${bsky_app_password}">
+                <label><input type="checkbox" name="bsky_open_tabs"${bsky_open_tabs ? ' checked' : ''}>Open BSKY posts in new tab</label>
+                `
+            const btn = document.createElement('button');
+            btn.innerText = 'Save';
+            bsky_settings_div.appendChild(btn);
+            btn.addEventListener('click', function(e) {
+                bsky_handle = bsky_settings_div.querySelector('[name="bsky_handle"]').value;
+                bsky_app_password = bsky_settings_div.querySelector('[name="bsky_app_password"]').value;
+                bsky_open_tabs = bsky_settings_div.querySelector('[name="bsky_open_tabs"]').checked;
+
+                document.body.removeChild(bsky_settings_div);
+                bsky_settings_div = null;
+
+                GM_setValue('bsky_handle', bsky_handle);
+                GM_setValue('bsky_app_password', bsky_app_password);
+                GM_setValue('bsky_open_tabs', bsky_open_tabs);
+
+                bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
+
+                if (bsky_crosspost_enabled)
+                {
+                    bsky_client.set_credentials (bsky_handle, bsky_app_password)
+                }
+
+                // update disabled state of all checkboxes
+                for (let el of document.querySelectorAll('.bsky-checkbox input'))
+                {
+                    el.disabled = !bsky_crosspost_enabled;
+                }
+            });
+
+            document.body.appendChild(bsky_settings_div);
+            return false;
+        });
+
+        const div = document.createElement('div');
+        div.className = 'bsky-nav';
+        div.appendChild(a);
+        nav.appendChild(div);
+    }
+
+    /*
+	 * Adds new BSKY checkbox button to post toolbars.
+	 */
+    const create_bsky_checkbox = function(toolbar)
+    {
+        const label = document.createElement('label');
+        label.className = 'bsky-checkbox';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = bsky_crosspost_checked;
+        checkbox.disabled = !bsky_crosspost_enabled;
+        checkbox.addEventListener('click', function()
+        {
+            bsky_crosspost_checked = this.checked;
+            GM_setValue('bsky_crosspost_checked', bsky_crosspost_checked);
+            for (let el of document.querySelectorAll('.bsky-checkbox input'))
+            {
+                el.checked = bsky_crosspost_checked;
+            }
+        });
+
+        label.appendChild(checkbox);
+
+        const span = document.createElement('span');
+        span.innerText = 'BSKY';
+        label.appendChild(span);
+
+        toolbar.appendChild(label);
+    }
+
+    /*
+	 * Intercepts post requests, possibly first posts to BSKY, then to Twitter/X.
+	 */
+    const post_button_handler = async function(e) {
+        debug('POST BUTTON clicked');
+        if (this.firstChild.getAttribute('aria-disabled'))
+        {
+            e.stopPropagation();
+            return;
+        }
+
+        if (!is_bsky_posted && bsky_crosspost_enabled && bsky_crosspost_checked)
+        {
+            // first post to BSKY
+            e.stopPropagation();
+
+            let post_text = '';
+            let post_images = null;
+            let post_card = null;
+
+            await bsky_client.verify_session()
+            .then((session) => GM_setValue('bsky_session', session));
+
+            const div_text = document.querySelector(POST_TEXT_AREA_SELECTOR);
+            if (div_text)
+            {
+                post_text = div_text.innerText;
+            }
+
+            if (bsky_card && post_text.includes(bsky_card.url))
+            {
+                // get card
+                post_card = {
+                    '$type': 'app.bsky.embed.external',
+                    'external': {
+                        uri: bsky_card.url,
+                        title: bsky_card.title,
+                        description: bsky_card.description,
+                    },
+                }
+                if (bsky_card.image)
+                {
+                    await bsky_client.upload_image_by_url(bsky_card.image)
+                    .then((res) => {
+                        post_card.external.thumb = res.blob;
+                        post_text = post_text.replace(bsky_card.url, '');
+                    });
+                }
+            }
+            else
+            {
+                // get images
+                const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
+                if (div_attachments)
+                {
+                    const images = div_attachments.querySelectorAll('img');
+                    if (images.length)
+                    {
+                        post_images = {
+                            '$type': 'app.bsky.embed.images',
+                            'images': [],
+                        };
+                        for (let img of images)
+                        {
+                            await bsky_client.upload_image(img)
+                            .then((res) => {
+                                post_images.images.push({
+                                    alt: '',
+                                    image: res.blob
+                                });
+                            });
+                        }
+                    }
+                }
+            }
+
+            debug('posting to BSKY');
+            await bsky_client.create_post(post_text, post_images, post_card)
+            .then((res) => {
+                if (bsky_open_tabs && res.uri)
+                {
+                    GM_openInTab(`https://bsky.app/profile/${bsky_handle}/post/` + res.uri.split('/').pop(), {active: true});
+                }
+            });
+
+            is_bsky_posted = true;
+
+            // now forward click event to Twitter/X
+            this.click();
+        }
+        else
+        {
+            is_bsky_posted = false;
+        }
+    }
+
+    GM_addStyle(css);
+
+    /*
+     * Observer that watches page for dynamic updates and injects elements and event handlers
+	 */
+    const pageObserver = new MutationObserver(mutations => {
+
+        const navbar = document.querySelector(NAV_SELECTOR);
+        if (navbar)
+        {
+            debug('NAVBAR found');
+            navbar.classList.toggle('bsky-navbar', true);
+            extend_navbar(navbar);
+        }
+
+        const toolbar = document.querySelector(POST_TOOLBAR_SELECTOR);
+        if (toolbar)
+        {
+            debug('POST_TOOLBAR found');
+            toolbar.classList.toggle('bsky-toolbar', true);
+            create_bsky_checkbox(toolbar);
+        }
+
+        const button = document.querySelector(POST_BUTTON_SELECTOR);
+        if (button)
+        {
+            debug('POST_BUTTON found');
+            button.classList.toggle('bsky-button', true);
+            button.addEventListener('click', post_button_handler, true);
+        }
+    });
+
+    pageObserver.observe(document.body, { childList: true, subtree: true });
+
+    bsky_client = new BSKY(bsky_handle, bsky_app_password, bsky_session);
+
+    // hook into native XMLHttpRequest to capture card data
     unsafeWindow.XMLHttpRequest.prototype._open = unsafeWindow.XMLHttpRequest.prototype.open;
-//     unsafeWindow.XMLHttpRequest.prototype.open = function(...args) {
-//         //do whatever mucking around you want here, e.g.
-//         //changing the onload callback to your own version
-//         console.log(">>> XMLHttpRequest open:", args);
-
-//         if (args[1].includes('/cards/')) {
-//             this.addEventListener("readystatechange", function() {
-//                 //console.log(">>> readyState:", this.readyState);
-//                 if (this.readyState === 4) {
-//                     console.log('>>> RESULT', JSON.parse(this.response));
-//                 }
-//             }, false);
-//         }
-
-//         this._is_tweet = args[1].includes('/CreateTweet');
-//         this._open(...args);
-//     };
-
-    unsafeWindow.XMLHttpRequest.prototype._send = unsafeWindow.XMLHttpRequest.prototype.send;
-//     unsafeWindow.XMLHttpRequest.prototype.send = function(...args) {
-//         if (this._is_tweet)
-//         {
-//             console.log('>>> NEW TWEET', args);
-//         }
-//         this._send(...args);
-//     };
-
-    main();
+    unsafeWindow.XMLHttpRequest.prototype.open = function(...args) {
+        if (args[1].includes('/cards/'))
+        {
+            this.addEventListener("readystatechange", function() {
+                if (this.readyState === 4)
+                {
+                    const res = JSON.parse(this.response);
+                    if (res.card)
+                    {
+                        bsky_card = {
+                            url: res.card.url,
+                            title: res.card.binding_values.title.string_value,
+                            description: res.card.binding_values.description.string_value,
+                            image: res.card.binding_values.thumbnail_image_original.image_value.url,
+                        };
+                    }
+                }
+            }, false);
+        }
+        this._open(...args);
+    };
 
 })();
