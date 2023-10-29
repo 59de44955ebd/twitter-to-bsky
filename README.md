@@ -22,7 +22,7 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 
 **App password**
 
-The password you have to enter in the Bluesky settings dialog (see above) is **not** your actual Bluesky password, but instead a so called "app password", in the blueksy web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "BSKY App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "BSKY Handle" field and save the changes.
+The password you have to enter in the Bluesky settings dialog (see above) is **not** your actual Bluesky password, but instead a so called "app password", in the Blueksy web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "BSKY App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "BSKY Handle" field and save the changes.
 
 **Screenshots**
 
