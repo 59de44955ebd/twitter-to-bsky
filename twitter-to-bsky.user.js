@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.2
+// @version        0.3
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @license        MIT
 // @match          https://twitter.com/*
 // @icon           https://bsky.app/static/favicon-32x32.png
+// @resource       bsky_icon https://bsky.app/static/favicon-32x32.png
+// @grant          GM_getResourceURL
 // @grant          GM_setValue
 // @grant          GM_getValue
 // @grant          GM_addStyle
@@ -13,6 +15,8 @@
 // @grant          GM_openInTab
 // @updateURL      https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.meta.js
 // @downloadURL    https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js
+// @homepageURL    https://github.com/59de44955ebd/twitter-to-bsky
+// @supportURL     https://github.com/59de44955ebd/twitter-to-bsky/blob/main/README.md
 // @run-at         document-body
 // ==/UserScript==
 
@@ -33,6 +37,8 @@
     // this size limit specified in the app.bsky.embed.images lexicon
     const BSKY_MAX_UPLOAD_BYTES = 1000000;
 
+    const icon_url = GM_getResourceURL('bsky_icon', false);
+
     const css = `
 .bsky-nav {
   padding: 12px;
@@ -41,8 +47,8 @@
 .bsky-nav a {
   width: 1.75rem;
   height: 1.75rem;
-  background-image:url(https://bsky.app/static/favicon-32x32.png);
-  background-size: contain;
+  background-image: url(${icon_url});
+  background-size: cover;
   display: block;
 }
 .bsky-checkbox input {
@@ -199,13 +205,14 @@
                             },
                             data: new Uint8Array(reader.result),
                             onload: (response) => {
+                                //debug('upload_image', response.responseText);
                                 resolve(JSON.parse(response.responseText));
                             },
                             onerror: reject,
                         });
                     };
                     reader.onerror = reject;
-                    reader.readAsArrayBuffer(file_object); //image.files[0]);
+                    reader.readAsArrayBuffer(file_object);
                 });
             });
         }
@@ -455,7 +462,7 @@
                 }
             }
 
-            debug('posting to BSKY');
+            debug('Posting to BSKY...');
             await bsky_client.create_post(post_text, post_images, post_card)
             .then((res) => {
                 if (bsky_open_tabs && res.uri)
@@ -478,17 +485,24 @@
     GM_addStyle(css);
 
     /*
-     * Observer that watches page for dynamic updates and injects elements and event handlers
+     * Single-shot observer for the navbar
 	 */
-    const pageObserver = new MutationObserver(mutations => {
-
+    const navObserver = new MutationObserver(mutations => {
         const navbar = document.querySelector(NAV_SELECTOR);
         if (navbar)
         {
+            navObserver.disconnect();
             debug('NAVBAR found');
             navbar.classList.toggle('bsky-navbar', true);
             extend_navbar(navbar);
         }
+    });
+    navObserver.observe(document.body, {childList: true, subtree: true});
+
+    /*
+     * Observer that watches page for dynamic updates and injects elements and event handlers
+	 */
+    const pageObserver = new MutationObserver(mutations => {
 
         const toolbar = document.querySelector(POST_TOOLBAR_SELECTOR);
         if (toolbar)
