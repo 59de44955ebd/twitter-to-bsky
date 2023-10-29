@@ -1,6 +1,6 @@
-# twitter-to-bsky - crosspost from Twitter to Bluesky
+# twitter-to-bsky - crosspost from Twitter/X to Bluesky
 
-twitter-to-bsky is a [userscript](https://en.wikipedia.org/wiki/Userscript) written for [Violentmonkey](https://violentmonkey.github.io/get-it/) running in Desktop browsers (Chrome/Firefox/Edge).
+twitter-to-bsky is a [userscript](https://en.wikipedia.org/wiki/Userscript) written for [Violentmonkey](https://violentmonkey.github.io/get-it/) running in desktop web browsers (Chrome/Firefox/Edge).
 
 It allows to automatically crosspost to [Bluesky](https://bsky.app/) when writing posts in the [Twitter/X](https://twitter.com/) web application in a desktop browser.
 
@@ -10,7 +10,7 @@ Crossposting obviously only makes sense for generic posts that e.g. link to a ne
 
 **Usage**
 
-Install and activate the [Violentmonkey](https://violentmonkey.github.io/get-it/) browser addon, then open the [userscript](https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js) in the browser and allow Violentmonkey to install it.
+Install and activate the [Violentmonkey](https://violentmonkey.github.io/get-it/) browser addon, then open [this URL - the userscript](https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js) in the browser and allow Violentmonkey to install it.
 
 If you (re-)load the Twitter/X page, it will be "enhanced" with the following new elements:
 * a blue Bluesky button at the bottom of the navigation bar that allows to enter you Bluesky credentials (see below) in a small dialog popup.
