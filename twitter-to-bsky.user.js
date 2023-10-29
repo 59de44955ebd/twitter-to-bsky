@@ -21,7 +21,7 @@
 // ==/UserScript==
 
 (function() {
-	'use strict';
+    'use strict';
 
     // config
     const LOG_PREFIX = "[BSKY]";
@@ -103,10 +103,10 @@
     let bsky_card = null;
     let is_bsky_posted = false;
 
-	const debug = function(...toLog)
+    const debug = function(...toLog)
     {
-		console.debug(LOG_PREFIX, ...toLog);
-	}
+        console.debug(LOG_PREFIX, ...toLog);
+    }
 
     class BSKY
     {
@@ -220,7 +220,7 @@
         upload_image_by_url(image_url)
         {
             let image_type;
-        	return fetch(image_url)
+            return fetch(image_url)
             .then((res) => {
                 image_type = res.headers.get('content-type');
                 return res.arrayBuffer();
@@ -292,8 +292,8 @@
     }
 
     /*
-	 * Adds BSKY icon for changing settings to navbar.
-	 */
+     * Adds BSKY icon for changing settings to navbar.
+     */
     const extend_navbar = function(nav)
     {
         const a = document.createElement('a');
@@ -356,8 +356,8 @@
     }
 
     /*
-	 * Adds new BSKY checkbox button to post toolbars.
-	 */
+     * Adds new BSKY checkbox button to post toolbars.
+     */
     const create_bsky_checkbox = function(toolbar)
     {
         const label = document.createElement('label');
@@ -387,8 +387,8 @@
     }
 
     /*
-	 * Intercepts post requests, possibly first posts to BSKY, then to Twitter/X.
-	 */
+     * Intercepts post requests, possibly first posts to BSKY, then to Twitter/X.
+     */
     const post_button_handler = async function(e) {
         debug('POST BUTTON clicked');
         if (this.firstChild.getAttribute('aria-disabled'))
@@ -486,7 +486,7 @@
 
     /*
      * Single-shot observer for the navbar
-	 */
+     */
     const navObserver = new MutationObserver(mutations => {
         const navbar = document.querySelector(NAV_SELECTOR);
         if (navbar)
@@ -501,7 +501,7 @@
 
     /*
      * Observer that watches page for dynamic updates and injects elements and event handlers
-	 */
+     */
     const pageObserver = new MutationObserver(mutations => {
 
         const toolbar = document.querySelector(POST_TOOLBAR_SELECTOR);
