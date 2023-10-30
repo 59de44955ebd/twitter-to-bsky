@@ -17,7 +17,7 @@ twitter-to-bsky supports plain text posts, posts with one or several attached im
 Install and activate the [Violentmonkey](https://violentmonkey.github.io/get-it/) browser addon, then open [this URL - the userscript](https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js) in the browser and allow Violentmonkey to install it.
 
 If you now (re-)load the Twitter/X page, it will be "enhanced" with the following new elements:
-* a blue Bluesky button at the bottom of the navigation bar that allows to enter you Bluesky credentials (see below) in a small popup dialog.
+* a blue Bluesky button at the bottom of the navigation bar that allows to enter your Bluesky credentials (see "App password" below) in a small popup dialog.
 * a "Bluesky" checkbox in the toolbar of the new post area (both inline and dialog). If the checkbox is checked, pressing the "Post" button will send the same post also to Bluesky.
 
 **App password**
