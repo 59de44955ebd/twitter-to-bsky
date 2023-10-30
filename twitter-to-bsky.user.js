@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.4
+// @version        0.5
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @license        MIT
@@ -13,6 +13,7 @@
 // @grant          GM_addStyle
 // @grant          GM_xmlhttpRequest
 // @grant          GM_openInTab
+// @grant          GM_notification
 // @updateURL      https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.meta.js
 // @downloadURL    https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js
 // @homepageURL    https://github.com/59de44955ebd/twitter-to-bsky
@@ -25,6 +26,8 @@
 
     // config
     const LOG_PREFIX = "[BSKY]";
+
+    const SHOW_NOTIFICATIONS = true;
 
     const NAV_SELECTOR = 'header nav[role="navigation"]:not(.bsky-navbar)';
     const POST_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > nav:not(.bsky-toolbar)';
@@ -117,6 +120,14 @@
     const debug = function(...toLog)
     {
         console.debug(LOG_PREFIX, ...toLog);
+    }
+
+    const notify = function(message)
+    {
+        if (SHOW_NOTIFICATIONS)
+        {
+            GM_notification(message, 'twitter-to-bsky', icon_url);
+        }
     }
 
     class BSKY
@@ -414,70 +425,83 @@
             let post_images = null;
             let post_card = null;
 
-            await bsky_client.verify_session()
-            .then((session) => GM_setValue('bsky_session', session));
-
-            const div_text = document.querySelector(POST_TEXT_AREA_SELECTOR);
-            if (div_text)
-            {
-                post_text = div_text.innerText;
-            }
-
-            if (bsky_card && post_text.includes(bsky_card.url))
-            {
-                // get card
-                post_card = {
-                    '$type': 'app.bsky.embed.external',
-                    'external': {
-                        uri: bsky_card.url,
-                        title: bsky_card.title,
-                        description: bsky_card.description,
-                    },
-                }
-                if (bsky_card.image)
-                {
-                    await bsky_client.upload_image_by_url(bsky_card.image)
-                    .then((res) => {
-                        post_card.external.thumb = res.blob;
-                        post_text = post_text.replace(bsky_card.url, '');
-                    });
-                }
-            }
-            else
-            {
-                // get images
-                const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
-                if (div_attachments)
-                {
-                    const images = div_attachments.querySelectorAll('img');
-                    if (images.length)
+            try {
+                await bsky_client.verify_session()
+                .then((session) => {
+                    if (session.error)
                     {
-                        post_images = {
-                            '$type': 'app.bsky.embed.images',
-                            'images': [],
-                        };
-                        for (let img of images)
+                        throw new Error(session.message);
+                    }
+                    GM_setValue('bsky_session', session);
+                });
+
+                const div_text = document.querySelector(POST_TEXT_AREA_SELECTOR);
+                if (div_text)
+                {
+                    post_text = div_text.innerText;
+                }
+
+                if (bsky_card && post_text.includes(bsky_card.url))
+                {
+                    // get card
+                    post_card = {
+                        '$type': 'app.bsky.embed.external',
+                        'external': {
+                            uri: bsky_card.url,
+                            title: bsky_card.title,
+                            description: bsky_card.description,
+                        },
+                    }
+                    if (bsky_card.image)
+                    {
+                        await bsky_client.upload_image_by_url(bsky_card.image)
+                        .then((res) => {
+                            post_card.external.thumb = res.blob;
+                            post_text = post_text.replace(bsky_card.url, '');
+                        });
+                    }
+                }
+                else
+                {
+                    // get images
+                    const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
+                    if (div_attachments)
+                    {
+                        const images = div_attachments.querySelectorAll('img');
+                        if (images.length)
                         {
-                            await bsky_client.upload_image(img)
-                            .then((res) => {
-                                post_images.images.push({
-                                    alt: '',
-                                    image: res.blob
+                            post_images = {
+                                '$type': 'app.bsky.embed.images',
+                                'images': [],
+                            };
+                            for (let img of images)
+                            {
+                                await bsky_client.upload_image(img)
+                                .then((res) => {
+                                    post_images.images.push({
+                                        alt: '',
+                                        image: res.blob
+                                    });
                                 });
-                            });
+                            }
                         }
                     }
                 }
-            }
 
-            debug('Posting to BSKY...');
-            await bsky_client.create_post(post_text, post_images, post_card)
-            .then((res) => {
-                if (bsky_open_tabs && res.uri)
-                {
-                    GM_openInTab(`https://bsky.app/profile/${bsky_handle}/post/` + res.uri.split('/').pop(), {active: true});
-                }
-            });
+                debug('Posting to BSKY...');
+                await bsky_client.create_post(post_text, post_images, post_card)
+                .then((res) => {
+                    notify('Post was successfully crossposted to Bluesky');
+                    if (bsky_open_tabs && res.uri)
+                    {
+                        GM_openInTab(`https://bsky.app/profile/${bsky_handle}/post/` + res.uri.split('/').pop(), {active: true});
+                    }
+                });
+            }
+            catch (error) {
+                debug(error);
+                notify('Error: crossposting to Bluesky failed');
+            }
 
             is_bsky_posted = true;
 
@@ -544,7 +568,7 @@
                     const res = JSON.parse(this.response);
                     if (res.card)
                     {
-                    	debug('CARD found');
+                        debug('CARD found');
                         bsky_card = {
                             url: res.card.url,
                             title: res.card.binding_values.title.string_value,

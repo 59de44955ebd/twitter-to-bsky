@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.4
+// @version        0.5
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @license        MIT
@@ -13,6 +13,7 @@
 // @grant          GM_addStyle
 // @grant          GM_xmlhttpRequest
 // @grant          GM_openInTab
+// @grant          GM_notification
 // @updateURL      https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.meta.js
 // @downloadURL    https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js
 // @homepageURL    https://github.com/59de44955ebd/twitter-to-bsky
