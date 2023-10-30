@@ -24,10 +24,7 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 
 The password you have to enter in the Bluesky settings dialog (see above) is **not** your actual Bluesky password, but instead a so called "app password", in the Bluesky web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "Bluesky App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "Bluesky Handle" field and save the changes.
 
-**Screenshots**
+**Screenshot**
 
-*BSKY button with settings dialog*  
-![BSKY button with settings dialog](screenshots/bsky-button.jpg)
-
-*BSKY checkbox in post toolbar*  
-![BSKY checkbox in post toolbar](screenshots/bsky-checkbox.jpg)
+*Twitter/X enhanced with Bluesky buttons*  
+![BSKY button with settings dialog](screenshots/bsky-buttons.jpg)
