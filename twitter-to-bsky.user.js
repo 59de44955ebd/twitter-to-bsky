@@ -308,7 +308,7 @@
     const extend_navbar = function(nav)
     {
         const a = document.createElement('a');
-        a.title = 'BSKY Settings';
+        a.title = 'Bluesky Settings';
         a.addEventListener('click', function(e)
         {
             if (bsky_settings_div)
@@ -323,9 +323,9 @@
             bsky_settings_div.className = 'bsky-settings';
             bsky_settings_div.style = `left:${r.right + 5}px;top:${r.top}px;`;
             bsky_settings_div.innerHTML = `
-                <input type="text" name="bsky_handle" placeholder="BSKY Handle" autocomplete="off" value="${bsky_handle}">
-                <input type="password" name="bsky_app_password" placeholder="BSKY App Password" autocomplete="off" value="${bsky_app_password}">
-                <label><input type="checkbox" name="bsky_open_tabs"${bsky_open_tabs ? ' checked' : ''}>Open BSKY posts in new tab</label>
+                <input type="text" name="bsky_handle" placeholder="Bluesky Handle" autocomplete="off" value="${bsky_handle}">
+                <input type="password" name="bsky_app_password" placeholder="Bluesky App Password" autocomplete="off" value="${bsky_app_password}">
+                <label><input type="checkbox" name="bsky_open_tabs"${bsky_open_tabs ? ' checked' : ''}>Open Bluesky posts in new tab?</label>
                 `
             const btn = document.createElement('button');
             btn.innerText = 'Save';
@@ -342,7 +342,7 @@
                 GM_setValue('bsky_app_password', bsky_app_password);
                 GM_setValue('bsky_open_tabs', bsky_open_tabs);
 
-				bsky_client.set_credentials(bsky_handle, bsky_app_password);
+                bsky_client.set_credentials(bsky_handle, bsky_app_password);
                 bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
 
                 // update disabled state of all checkboxes
@@ -369,6 +369,7 @@
     {
         const label = document.createElement('label');
         label.className = 'bsky-checkbox';
+        label.title = 'Crosspost to Bluesky?';
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -387,7 +388,7 @@
         label.appendChild(checkbox);
 
         const span = document.createElement('span');
-        span.innerText = 'BSKY';
+        span.innerText = 'Bluesky';
         label.appendChild(span);
 
         toolbar.appendChild(label);

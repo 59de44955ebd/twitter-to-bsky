@@ -18,11 +18,11 @@ Install and activate the [Violentmonkey](https://violentmonkey.github.io/get-it/
 
 If you now (re-)load the Twitter/X page, it will be "enhanced" with the following new elements:
 * a blue Bluesky button at the bottom of the navigation bar that allows to enter you Bluesky credentials (see below) in a small popup dialog.
-* a "BSKY" checkbox in the toolbar of the new post area (both inline and dialog). If the checkbox is checked, pressing the "Post" button will send the same post also to Bluesky.
+* a "Bluesky" checkbox in the toolbar of the new post area (both inline and dialog). If the checkbox is checked, pressing the "Post" button will send the same post also to Bluesky.
 
 **App password**
 
-The password you have to enter in the Bluesky settings dialog (see above) is **not** your actual Bluesky password, but instead a so called "app password", in the Bluesky web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "BSKY App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "BSKY Handle" field and save the changes.
+The password you have to enter in the Bluesky settings dialog (see above) is **not** your actual Bluesky password, but instead a so called "app password", in the Bluesky web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into the "Bluesky App Password" field of this popup dialog, enter your full Bluesky handle (i.e. including ".bsky.social") into the "Bluesky Handle" field and save the changes.
 
 **Screenshots**
 
