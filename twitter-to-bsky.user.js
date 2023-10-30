@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.3
+// @version        0.4
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @license        MIT
 // @match          https://twitter.com/*
-// @icon           https://bsky.app/static/favicon-32x32.png
-// @resource       bsky_icon https://bsky.app/static/favicon-32x32.png
+// @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/bsky-32x32.png
+// @resource       bsky_icon https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/bsky-32x32.png
 // @grant          GM_getResourceURL
 // @grant          GM_setValue
 // @grant          GM_getValue
@@ -50,6 +50,17 @@
   background-image: url(${icon_url});
   background-size: cover;
   display: block;
+}
+.bsky-nav a:after {
+  content: "Bluesky";
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 20px;
+  margin-left: 46px;
+}
+@media (max-width: 1264px) {
+  .bsky-nav a:after {
+    display: none;
+  }
 }
 .bsky-checkbox input {
   cursor: pointer;
@@ -331,12 +342,8 @@
                 GM_setValue('bsky_app_password', bsky_app_password);
                 GM_setValue('bsky_open_tabs', bsky_open_tabs);
 
+				bsky_client.set_credentials(bsky_handle, bsky_app_password);
                 bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
-
-                if (bsky_crosspost_enabled)
-                {
-                    bsky_client.set_credentials (bsky_handle, bsky_app_password)
-                }
 
                 // update disabled state of all checkboxes
                 for (let el of document.querySelectorAll('.bsky-checkbox input'))
