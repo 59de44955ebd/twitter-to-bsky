@@ -544,6 +544,7 @@
                     const res = JSON.parse(this.response);
                     if (res.card)
                     {
+                    	debug('CARD found');
                         bsky_card = {
                             url: res.card.url,
                             title: res.card.binding_values.title.string_value,
