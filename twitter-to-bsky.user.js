@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.5
+// @version        0.6
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @namespace      59de44955ebd
@@ -20,14 +20,13 @@
 // @homepageURL    https://github.com/59de44955ebd/twitter-to-bsky
 // @supportURL     https://github.com/59de44955ebd/twitter-to-bsky/blob/main/README.md
 // @run-at         document-body
+// @inject-into    page
 // ==/UserScript==
 
 (function() {
     'use strict';
 
     // config
-    const LOG_PREFIX = "[BSKY]";
-
     const SHOW_NOTIFICATIONS = true;
 
     const NAV_SELECTOR = 'header nav[role="navigation"]:not(.bsky-navbar)';
@@ -120,7 +119,7 @@
 
     const debug = function(...toLog)
     {
-        console.debug(LOG_PREFIX, ...toLog);
+        console.debug('[BSKY]', ...toLog);
     }
 
     const notify = function(message)
@@ -163,6 +162,10 @@
                     }),
                     onload: (response) => {
                         const session = JSON.parse(response.responseText);
+                        if (session.error)
+                        {
+                            reject(session.message);
+                        }
                         this._session = session;
                         resolve(session);
                     },
@@ -183,6 +186,10 @@
                     },
                     onload: (response) => {
                         const session = JSON.parse(response.responseText);
+                        if (session.error)
+                        {
+                            reject(session.message);
+                        }
                         this._session = session;
                         resolve(session);
                     },
@@ -197,8 +204,8 @@
             if (this._session)
             {
                 return this.refresh_session()
-                    .catch((err) => {
-                    return this.login()
+                .catch((err) => {
+                    return this.login();
                 });
             }
             else
@@ -228,8 +235,12 @@
                             },
                             data: new Uint8Array(reader.result),
                             onload: (response) => {
-                                //debug('upload_image', response.responseText);
-                                resolve(JSON.parse(response.responseText));
+                                const res = JSON.parse(response.responseText);
+                                if (res.error)
+                                {
+                                    reject(res.message);
+                                }
+                                resolve(res);
                             },
                             onerror: reject,
                         });
@@ -263,7 +274,12 @@
                         },
                         data: new Uint8Array(buf),
                         onload: (response) => {
-                            resolve(JSON.parse(response.responseText));
+                            const res = JSON.parse(response.responseText);
+                            if (res.error)
+                            {
+                                reject(res.message);
+                            }
+                            resolve(res);
                         },
                         onerror: reject,
                     });
@@ -306,7 +322,12 @@
                         record: post,
                     }),
                     onload: (response) => {
-                        resolve(JSON.parse(response.responseText));
+                        const res = JSON.parse(response.responseText);
+                        if (res.error)
+                        {
+                            reject(res.message);
+                        }
+                        resolve(res);
                     },
                     onerror: reject,
                 });
@@ -444,7 +465,6 @@
 
                 if (bsky_card && post_text.includes(bsky_card.url))
                 {
-                    // get card
                     post_card = {
                         '$type': 'app.bsky.embed.external',
                         'external': {
@@ -501,7 +521,7 @@
             }
             catch (error) {
                 debug(error);
-                notify('Error: crossposting to Bluesky failed');
+                notify(`Error: crossposting to Bluesky failed: \n${error.message}`);
             }
 
             is_bsky_posted = true;
@@ -569,7 +589,6 @@
                     const res = JSON.parse(this.response);
                     if (res.card)
                     {
-                        debug('CARD found');
                         bsky_card = {
                             url: res.card.url,
                             title: res.card.binding_values.title.string_value,

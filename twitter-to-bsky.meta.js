@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.5
+// @version        0.6
 // @description    Crosspost from Twitter to Bluesky
 // @author         59de44955ebd
 // @namespace      59de44955ebd
@@ -20,4 +20,5 @@
 // @homepageURL    https://github.com/59de44955ebd/twitter-to-bsky
 // @supportURL     https://github.com/59de44955ebd/twitter-to-bsky/blob/main/README.md
 // @run-at         document-body
+// @inject-into    page
 // ==/UserScript==
