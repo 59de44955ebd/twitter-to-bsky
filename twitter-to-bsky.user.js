@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.6
-// @description    Crosspost from Twitter to Bluesky
+// @version        0.7
+// @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @namespace      59de44955ebd
 // @license        MIT
 // @match          https://twitter.com/*
-// @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/bsky-32x32.png
-// @resource       bsky_icon https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/bsky-32x32.png
+// @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
+// @resource       cross_icon https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
 // @grant          GM_getResourceURL
 // @grant          GM_setValue
 // @grant          GM_getValue
@@ -37,10 +37,13 @@
     const POST_ATTACHMENTS_SELECTOR = '[data-testid="attachments"]';
 
     const BSKY_PDS_URL = 'https://bsky.social';
-    // this size limit specified in the app.bsky.embed.images lexicon
-    const BSKY_MAX_UPLOAD_BYTES = 1000000;
 
-    const icon_url = GM_getResourceURL('bsky_icon', false);
+    const BSKY_IMAGE_MAX_BYTES = 1000000; // 10 MB
+
+    const MASTODON_IMAGE_MAX_BYTES = 8000000; // 8 MB
+    const MASTODON_VIDEO_MAX_BYTES = 40000000; // 40 MB
+
+    const icon_url = GM_getResourceURL('cross_icon', false);
 
     const css = `
 .bsky-nav {
@@ -65,22 +68,26 @@
     display: none;
   }
 }
-.bsky-checkbox input {
+.cross-checkbox {
+  margin-left: 5px;
+}
+.cross-checkbox input {
   cursor: pointer;
 }
-.bsky-checkbox  span {
+.cross-checkbox  span {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-weight: bold;
+  font-size: 11px;
   cursor: pointer;
 }
-.bsky-checkbox  input:disabled,
-.bsky-checkbox  input:disabled + span {
+.cross-checkbox  input:disabled,
+.cross-checkbox  input:disabled + span {
   color: #ccc;
   cursor: default;
 }
 .bsky-settings {
   position: fixed;
-  width: 240px;
+  width: 280px;
   background: white;
   padding: 10px;
   border: 2px solid #0085FF;
@@ -88,7 +95,17 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 13.3333px
 }
+.bsky-settings fieldset {
+  margin-bottom: 5px;
+  padding-bottom: 2px;
+}
+.bsky-settings legend {
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
 .bsky-settings input[type="text"],
+.bsky-settings input[type="url"],
 .bsky-settings input[type="password"],
 .bsky-settings label
 {
@@ -103,19 +120,25 @@
 }
 */
 `
+    // mastodon stuff
+    let mastodon_client = null;
+    let mastodon_instance_url = GM_getValue('mastodon_instance_url', 'https://mastodon.social');
+    let mastodon_api_key = GM_getValue('mastodon_api_key', '');
+    let mastodon_crosspost_enabled = mastodon_instance_url != '' && mastodon_api_key != '';
+    let mastodon_crosspost_checked = GM_getValue('mastodon_crosspost_checked', false);
+
+    // bluesky stuff
+    let bsky_client = null;
     let bsky_handle = GM_getValue('bsky_handle', '');
     let bsky_app_password = GM_getValue('bsky_app_password', '');
     let bsky_session = GM_getValue('bsky_session', null);
-    let bsky_open_tabs = GM_getValue('bsky_open_tabs', false);
-
     let bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
     let bsky_crosspost_checked = GM_getValue('bsky_crosspost_checked', false);
 
-    let bsky_settings_div = null;
-    let bsky_client = null;
-
-    let bsky_card = null;
-    let is_bsky_posted = false;
+    let crosspost_open_tabs = GM_getValue('crosspost_open_tabs', false);
+    let settings_div = null;
+    let media_card = null;
+    let is_cross_posted = false;
 
     const debug = function(...toLog)
     {
@@ -127,6 +150,124 @@
         if (SHOW_NOTIFICATIONS)
         {
             GM_notification(message, 'twitter-to-bsky', icon_url);
+        }
+    }
+
+    class Mastodon
+    {
+        // all parameters optional
+        constructor(mastodon_api_root_url, mastodon_api_key)
+        {
+            this._mastodon_api_root_url = mastodon_api_root_url;
+            this._mastodon_api_key = mastodon_api_key;
+        }
+
+        set_credentials(mastodon_api_root_url, mastodon_api_key)
+        {
+            this._mastodon_api_root_url = mastodon_api_root_url;
+            this._mastodon_api_key = mastodon_api_key;
+        }
+
+        async upload_image(image_object)
+        {
+            return fetch(image_object.src)
+            .then(res => res.blob())
+            .then(blob => {
+                if (blob.size > MASTODON_IMAGE_MAX_BYTES)
+                {
+                    throw new Error(`Size of image ${blob.name} exceeds max. allowed size (${MASTODON_IMAGE_MAX_BYTES})`);
+                }
+                const formData = new FormData();
+                formData.append('file', blob);
+                return new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'POST',
+                        url: this._mastodon_api_root_url + '/api/v1/media',
+                        headers: {
+                            'Authorization': 'Bearer ' + this._mastodon_api_key,
+                        },
+                        fetch: true,
+                        data: formData,
+                        onload: (response) => {
+                            const res = JSON.parse(response.responseText);
+                            if (res.error)
+                            {
+                                reject(res.error);
+                            }
+                            resolve(res);
+                        },
+                        onerror: reject,
+                    });
+                });
+            });
+        }
+
+        async upload_video(video_object)
+        {
+            return fetch(video_object.currentSrc)
+            .then(res => res.blob())
+            .then(blob => {
+                if (blob.size > MASTODON_VIDEO_MAX_BYTES)
+                {
+                    throw new Error(`Size of video ${blob.name} exceeds max. allowed size (${MASTODON_VIDEO_MAX_BYTES})`);
+                }
+                const formData = new FormData();
+                formData.append('file', blob);
+                return new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'POST',
+                        url: this._mastodon_api_root_url + '/api/v1/media',
+                        headers: {
+                            'Authorization': 'Bearer ' + this._mastodon_api_key,
+                        },
+                        fetch: true,
+                        data: formData,
+                        onload: (response) => {
+                            const res = JSON.parse(response.responseText);
+                            if (res.error)
+                            {
+                                reject(res.error);
+                            }
+                            resolve(res);
+                        },
+                        onerror: reject,
+                    });
+                });
+            });
+        }
+
+        async create_post(post_text, media_ids)
+        {
+            const post = {
+                status: post_text,
+            };
+
+            if (media_ids && media_ids.length)
+            {
+                post.media_ids = media_ids;
+            }
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: this._mastodon_api_root_url + '/api/v1/statuses',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + this._mastodon_api_key,
+                    },
+                    fetch: true,
+                    data: JSON.stringify(post),
+                    onload: (response) => {
+                        const res = JSON.parse(response.responseText);
+                        if (res.error)
+                        {
+                            reject(res.error);
+                        }
+                        resolve(res);
+                    },
+                    onerror: reject,
+                });
+            });
         }
     }
 
@@ -147,7 +288,7 @@
             this._session = null;
         }
 
-        login()
+        async login()
         {
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
@@ -174,7 +315,7 @@
             });
         }
 
-        refresh_session()
+        async refresh_session()
         {
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
@@ -199,14 +340,17 @@
         }
 
         // utility function
-        verify_session()
+        async verify_session()
         {
             if (this._session)
             {
-                return this.refresh_session()
-                .catch((err) => {
-                    return this.login();
-                });
+                try
+                {
+                    return await this.refresh_session();
+                } catch (err)
+                {
+                    return await this.login();
+                }
             }
             else
             {
@@ -214,65 +358,25 @@
             }
         }
 
-        upload_image(image_object)
+        async upload_image(image_object)
         {
             return fetch(image_object.src)
             .then(res => res.blob())
-            .then((file_object) => {
-                if (file_object.size > BSKY_MAX_UPLOAD_BYTES)
+            .then(blob => {
+                if (blob.size > BSKY_IMAGE_MAX_BYTES)
                 {
-                    throw new Error(`Size of image ${file_object.name} exceeds max. allowed size (${BSKY_MAX_UPLOAD_BYTES})`);
-                }
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        GM_xmlhttpRequest({
-                            method: "POST",
-                            url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.uploadBlob',
-                            headers: {
-                                'Content-Type': file_object.type,
-                                'Authorization': 'Bearer ' + this._session.accessJwt,
-                            },
-                            data: new Uint8Array(reader.result),
-                            onload: (response) => {
-                                const res = JSON.parse(response.responseText);
-                                if (res.error)
-                                {
-                                    reject(res.message);
-                                }
-                                resolve(res);
-                            },
-                            onerror: reject,
-                        });
-                    };
-                    reader.onerror = reject;
-                    reader.readAsArrayBuffer(file_object);
-                });
-            });
-        }
-
-        upload_image_by_url(image_url)
-        {
-            let image_type;
-            return fetch(image_url)
-            .then((res) => {
-                image_type = res.headers.get('content-type');
-                return res.arrayBuffer();
-            })
-            .then((buf) => {
-                if (buf.byteLength > BSKY_MAX_UPLOAD_BYTES)
-                {
-                    throw new Error(`Size of image ${image_url} exceeds max. allowed size (${BSKY_MAX_UPLOAD_BYTES})`);
+                    throw new Error(`Size of image ${blob.name} exceeds max. allowed size (${BSKY_IMAGE_MAX_BYTES})`);
                 }
                 return new Promise((resolve, reject) => {
                     GM_xmlhttpRequest({
                         method: "POST",
                         url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.uploadBlob',
                         headers: {
-                            'Content-Type': image_type,
+                            'Content-Type': blob.type,
                             'Authorization': 'Bearer ' + this._session.accessJwt,
                         },
-                        data: new Uint8Array(buf),
+                        fetch: true,
+                        data: blob,
                         onload: (response) => {
                             const res = JSON.parse(response.responseText);
                             if (res.error)
@@ -284,10 +388,37 @@
                         onerror: reject,
                     });
                 });
-            })
+            });
         }
 
-        create_post(post_text, post_images, post_embed)
+        async upload_image_by_url(image_url)
+        {
+            return fetch(image_url)
+            .then(res => res.blob())
+            .then(blob => new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.uploadBlob',
+                    headers: {
+                        'Content-Type': blob.type,
+                        'Authorization': 'Bearer ' + this._session.accessJwt,
+                    },
+                    fetch: true,
+                    data: blob,
+                    onload: (response) => {
+                        const res = JSON.parse(response.responseText);
+                        if (res.error)
+                        {
+                            reject(res.message);
+                        }
+                        resolve(res);
+                    },
+                    onerror: reject,
+                });
+            }));
+        }
+
+        async create_post(post_text, post_images, post_embed)
         {
             const now = (new Date()).toISOString();
 
@@ -316,6 +447,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + this._session.accessJwt,
                     },
+                    fetch: true,
                     data: JSON.stringify({
                         repo: this._session.did,
                         collection: 'app.bsky.feed.post',
@@ -341,39 +473,65 @@
     const extend_navbar = function(nav)
     {
         const a = document.createElement('a');
-        a.title = 'Bluesky Settings';
+        a.title = 'Crosspost Settings';
         a.addEventListener('click', function(e)
         {
-            if (bsky_settings_div)
+            if (settings_div)
             {
-                document.body.removeChild(bsky_settings_div);
-                bsky_settings_div = null;
+                document.body.removeChild(settings_div);
+                settings_div = null;
                 return;
             }
 
             const r = a.getBoundingClientRect();
-            bsky_settings_div = document.createElement('div');
-            bsky_settings_div.className = 'bsky-settings';
-            bsky_settings_div.style = `left:${r.right + 5}px;top:${r.top}px;`;
-            bsky_settings_div.innerHTML = `
-                <input type="text" name="bsky_handle" placeholder="Bluesky Handle" autocomplete="off" value="${bsky_handle}">
-                <input type="password" name="bsky_app_password" placeholder="Bluesky App Password" autocomplete="off" value="${bsky_app_password}">
-                <label><input type="checkbox" name="bsky_open_tabs"${bsky_open_tabs ? ' checked' : ''}>Open Bluesky posts in new tab?</label>
+            settings_div = document.createElement('div');
+            settings_div.className = 'bsky-settings';
+            settings_div.style = `left:${r.right + 5}px;top:${r.top}px;`;
+            settings_div.innerHTML = `
+                <fieldset>
+                    <legend>Mastodon</legend>
+                    <input type="url" name="mastodon_instance_url" placeholder="Mastodon Instance URL" autocomplete="section-mastodon url" value="${mastodon_instance_url}">
+                    <input type="password" name="mastodon_api_key" placeholder="Mastodon API Key (access token)" autocomplete="section-mastodon current-password" value="${mastodon_api_key}">
+                </fieldset>
+                <fieldset>
+                    <legend>Bluesky</legend>
+                    <input type="text" name="bsky_handle" placeholder="Bluesky Handle" autocomplete="section-bsky username" value="${bsky_handle}">
+                    <input type="password" name="bsky_app_password" placeholder="Bluesky App Password" autocomplete="section-bsky current-password" value="${bsky_app_password}">
+                </fieldset>
+                <label><input type="checkbox" name="crosspost_open_tabs"${crosspost_open_tabs ? ' checked' : ''}>Open crossposts in new tab?</label>
                 `
             const btn = document.createElement('button');
             btn.innerText = 'Save';
-            bsky_settings_div.appendChild(btn);
+            settings_div.appendChild(btn);
             btn.addEventListener('click', function(e) {
-                bsky_handle = bsky_settings_div.querySelector('[name="bsky_handle"]').value;
-                bsky_app_password = bsky_settings_div.querySelector('[name="bsky_app_password"]').value;
-                bsky_open_tabs = bsky_settings_div.querySelector('[name="bsky_open_tabs"]').checked;
 
-                document.body.removeChild(bsky_settings_div);
-                bsky_settings_div = null;
+                mastodon_instance_url = settings_div.querySelector('[name="mastodon_instance_url"]').value;
+                mastodon_api_key = settings_div.querySelector('[name="mastodon_api_key"]').value;
+
+                bsky_handle = settings_div.querySelector('[name="bsky_handle"]').value;
+                bsky_app_password = settings_div.querySelector('[name="bsky_app_password"]').value;
+
+                crosspost_open_tabs = settings_div.querySelector('[name="crosspost_open_tabs"]').checked;
+
+                document.body.removeChild(settings_div);
+                settings_div = null;
+
+                GM_setValue('mastodon_instance_url', mastodon_instance_url);
+                GM_setValue('mastodon_api_key', mastodon_api_key);
 
                 GM_setValue('bsky_handle', bsky_handle);
                 GM_setValue('bsky_app_password', bsky_app_password);
-                GM_setValue('bsky_open_tabs', bsky_open_tabs);
+
+                GM_setValue('crosspost_open_tabs', crosspost_open_tabs);
+
+                mastodon_client.set_credentials(mastodon_instance_url, mastodon_api_key);
+                mastodon_crosspost_enabled = mastodon_instance_url != '' && mastodon_api_key != '';
+
+              // update disabled state of all checkboxes
+                for (let el of document.querySelectorAll('.mastodon-checkbox input'))
+                {
+                    el.disabled = !mastodon_crosspost_enabled;
+                }
 
                 bsky_client.set_credentials(bsky_handle, bsky_app_password);
                 bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
@@ -385,7 +543,7 @@
                 }
             });
 
-            document.body.appendChild(bsky_settings_div);
+            document.body.appendChild(settings_div);
             return false;
         });
 
@@ -400,15 +558,36 @@
      */
     const create_bsky_checkbox = function(toolbar)
     {
-        const label = document.createElement('label');
-        label.className = 'bsky-checkbox';
-        label.title = 'Crosspost to Bluesky?';
+        const label_m = document.createElement('label');
+        label_m.className = 'cross-checkbox mastodon-checkbox';
+        label_m.title = 'Crosspost to Mastodon?';
+        const checkbox_m = document.createElement('input');
+        checkbox_m.type = 'checkbox';
+        checkbox_m.checked = mastodon_crosspost_checked;
+        checkbox_m.disabled = !mastodon_crosspost_enabled;
+        checkbox_m.addEventListener('click', function()
+        {
+            mastodon_crosspost_checked = this.checked;
+            GM_setValue('mastodon_crosspost_checked', mastodon_crosspost_checked);
+            for (let el of document.querySelectorAll('.mastodon-checkbox input'))
+            {
+                el.checked = mastodon_crosspost_checked;
+            }
+        });
+        label_m.appendChild(checkbox_m);
+        const span_m = document.createElement('span');
+        span_m.innerText = 'Mastodon';
+        label_m.appendChild(span_m);
+        toolbar.appendChild(label_m);
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = bsky_crosspost_checked;
-        checkbox.disabled = !bsky_crosspost_enabled;
-        checkbox.addEventListener('click', function()
+        const label_b = document.createElement('label');
+        label_b.className = 'cross-checkbox bsky-checkbox';
+        label_b.title = 'Crosspost to Bluesky?';
+        const checkbox_b = document.createElement('input');
+        checkbox_b.type = 'checkbox';
+        checkbox_b.checked = bsky_crosspost_checked;
+        checkbox_b.disabled = !bsky_crosspost_enabled;
+        checkbox_b.addEventListener('click', function()
         {
             bsky_crosspost_checked = this.checked;
             GM_setValue('bsky_crosspost_checked', bsky_crosspost_checked);
@@ -417,20 +596,18 @@
                 el.checked = bsky_crosspost_checked;
             }
         });
-
-        label.appendChild(checkbox);
-
-        const span = document.createElement('span');
-        span.innerText = 'Bluesky';
-        label.appendChild(span);
-
-        toolbar.appendChild(label);
+        label_b.appendChild(checkbox_b);
+        const span_b = document.createElement('span');
+        span_b.innerText = 'Bluesky';
+        label_b.appendChild(span_b);
+        toolbar.appendChild(label_b);
     }
 
     /*
      * Intercepts post requests, possibly first posts to BSKY, then to Twitter/X.
      */
-    const post_button_handler = async function(e) {
+    const post_button_handler = async function(e)
+    {
         debug('POST BUTTON clicked');
         if (this.firstChild.getAttribute('aria-disabled'))
         {
@@ -438,52 +615,86 @@
             return;
         }
 
-        if (!is_bsky_posted && bsky_crosspost_enabled && bsky_crosspost_checked)
+        if (!is_cross_posted && ((mastodon_crosspost_enabled && mastodon_crosspost_checked) || (bsky_crosspost_enabled && bsky_crosspost_checked)))
         {
             // first post to BSKY
             e.stopPropagation();
 
             let post_text = '';
-            let post_images = null;
-            let post_card = null;
 
-            try {
-                await bsky_client.verify_session()
-                .then((session) => {
-                    if (session.error)
+            const div_text = document.querySelector(POST_TEXT_AREA_SELECTOR);
+            if (div_text)
+            {
+                post_text = div_text.innerText;
+            }
+
+            // mastodon
+            if (mastodon_crosspost_enabled && mastodon_crosspost_checked)
+            {
+                try
+                {
+                    // get media attachments
+                    const media_ids = [];
+                    const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
+                    if (div_attachments)
                     {
-                        throw new Error(session.message);
+                        const images = div_attachments.querySelectorAll('img');
+                        if (images.length)
+                        {
+                            for (let img of images)
+                            {
+                                await mastodon_client.upload_image(img)
+                                .then((res) => {
+                                    media_ids.push(res.id);
+                                });
+                            }
+                        }
+                        const videos = div_attachments.querySelectorAll('video');
+                        if (videos.length)
+                        {
+                            for (let vid of videos)
+                            {
+                                await mastodon_client.upload_video(vid)
+                                .then((res) => {
+                                    media_ids.push(res.id);
+                                });
+                            }
+                        }
                     }
-                    GM_setValue('bsky_session', session);
-                });
 
-                const div_text = document.querySelector(POST_TEXT_AREA_SELECTOR);
-                if (div_text)
-                {
-                    post_text = div_text.innerText;
+                    debug('Posting to Mastodon...');
+                    await mastodon_client.create_post(post_text, media_ids)
+                    .then((res) => {
+                        notify('Post was successfully crossposted to Mastodon');
+                        if (crosspost_open_tabs && res.uri)
+                        {
+                            GM_openInTab(res.url, {active: true});
+                        }
+                    });
                 }
+                catch (error)
+                {
+                    debug(error);
+                    notify(`Error: crossposting to Mastodon failed: \n${error}`);
+                }
+            }
 
-                if (bsky_card && post_text.includes(bsky_card.url))
-                {
-                    post_card = {
-                        '$type': 'app.bsky.embed.external',
-                        'external': {
-                            uri: bsky_card.url,
-                            title: bsky_card.title,
-                            description: bsky_card.description,
-                        },
-                    }
-                    if (bsky_card.image)
-                    {
-                        await bsky_client.upload_image_by_url(bsky_card.image)
-                        .then((res) => {
-                            post_card.external.thumb = res.blob;
-                            post_text = post_text.replace(bsky_card.url, '');
-                        });
-                    }
-                }
-                else
-                {
+            // bluesky
+            if (bsky_crosspost_enabled && bsky_crosspost_checked)
+            {
+                let post_images = null;
+                let post_card = null;
+
+                try {
+                    await bsky_client.verify_session()
+                    .then((session) => {
+                        if (session.error)
+                        {
+                            throw new Error(session.message);
+                        }
+                        GM_setValue('bsky_session', session);
+                    });
+
                     // get images
                     const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
                     if (div_attachments)
@@ -507,55 +718,70 @@
                             }
                         }
                     }
-                }
 
-                debug('Posting to BSKY...');
-                await bsky_client.create_post(post_text, post_images, post_card)
-                .then((res) => {
-                    notify('Post was successfully crossposted to Bluesky');
-                    if (bsky_open_tabs && res.uri)
+                    // get card (Bluesky only allows either images or card)
+                    if (!post_images && media_card && post_text.includes(media_card.url))
                     {
-                        GM_openInTab(`https://bsky.app/profile/${bsky_handle}/post/` + res.uri.split('/').pop(), {active: true});
+                        post_card = {
+                            '$type': 'app.bsky.embed.external',
+                            'external': {
+                                uri: media_card.url,
+                                title: media_card.title,
+                                description: media_card.description,
+                            },
+                        }
+                        if (media_card.image)
+                        {
+                            await bsky_client.upload_image_by_url(media_card.image)
+                            .then((res) => {
+                                post_card.external.thumb = res.blob;
+                                // post_text = post_text.replace(media_card.url, '');
+                            });
+                        }
                     }
-                });
-            }
-            catch (error) {
-                debug(error);
-                notify(`Error: crossposting to Bluesky failed: \n${error.message}`);
+
+                    debug('Posting to Bluesky...');
+                    await bsky_client.create_post(post_text, post_images, post_card)
+                    .then((res) => {
+                        notify('Post was successfully crossposted to Bluesky');
+                        if (crosspost_open_tabs && res.uri)
+                        {
+                            GM_openInTab(`https://bsky.app/profile/${bsky_handle}/post/` + res.uri.split('/').pop(), {active: true});
+                        }
+                    });
+                }
+                catch (error)
+                {
+                    debug(error);
+                    notify(`Error: crossposting to Bluesky failed: \n${error.message}`);
+                }
             }
 
-            is_bsky_posted = true;
+            is_cross_posted = true;
 
             // now forward click event to Twitter/X
             this.click();
         }
         else
         {
-            is_bsky_posted = false;
+            is_cross_posted = false;
         }
     }
 
     GM_addStyle(css);
 
     /*
-     * Single-shot observer for the navbar
+     * Observer that watches page for dynamic updates and injects elements and event handlers
      */
-    const navObserver = new MutationObserver(mutations => {
+    const pageObserver = new MutationObserver(mutations => {
+
         const navbar = document.querySelector(NAV_SELECTOR);
-        if (navbar)
+        if (navbar && !navbar.querySelector('.bsky-nav'))
         {
-            navObserver.disconnect();
             debug('NAVBAR found');
             navbar.classList.toggle('bsky-navbar', true);
             extend_navbar(navbar);
         }
-    });
-    navObserver.observe(document.body, {childList: true, subtree: true});
-
-    /*
-     * Observer that watches page for dynamic updates and injects elements and event handlers
-     */
-    const pageObserver = new MutationObserver(mutations => {
 
         const toolbar = document.querySelector(POST_TOOLBAR_SELECTOR);
         if (toolbar)
@@ -576,6 +802,7 @@
 
     pageObserver.observe(document.body, { childList: true, subtree: true });
 
+    mastodon_client = new Mastodon(mastodon_instance_url, mastodon_api_key);
     bsky_client = new BSKY(bsky_handle, bsky_app_password, bsky_session);
 
     // hook into native XMLHttpRequest to capture card data
@@ -589,7 +816,7 @@
                     const res = JSON.parse(this.response);
                     if (res.card)
                     {
-                        bsky_card = {
+                        media_card = {
                             url: res.card.url,
                             title: res.card.binding_values.title.string_value,
                             description: res.card.binding_values.description.string_value,
