@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.8
+// @version        0.9
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
@@ -22,6 +22,8 @@
 // @run-at         document-body
 // @inject-into    page
 // ==/UserScript==
+
+/*jshint esversion: 8 */
 
 (function() {
     'use strict';
@@ -119,7 +121,7 @@
   background-color: #000099 !important;
 }
 */
-`
+`;
     // Mastodon stuff
     let mastodon_client = null;
     let mastodon_instance_url = GM_getValue('mastodon_instance_url', 'https://mastodon.social');
@@ -143,7 +145,7 @@
     const debug = function(...toLog)
     {
         console.debug('[BSKY]', ...toLog);
-    }
+    };
 
     const notify = function(message)
     {
@@ -151,7 +153,7 @@
         {
             GM_notification(message, 'twitter-to-bsky', icon_url);
         }
-    }
+    };
 
     class Mastodon
     {
@@ -474,7 +476,7 @@
     {
         const a = document.createElement('a');
         a.title = 'Crosspost Settings';
-        a.addEventListener('click', function(e)
+        a.addEventListener('click', function()
         {
             if (settings_div)
             {
@@ -499,11 +501,11 @@
                     <input type="password" name="bsky_app_password" placeholder="Bluesky App Password" autocomplete="section-bsky current-password" value="${bsky_app_password}">
                 </fieldset>
                 <label><input type="checkbox" name="crosspost_open_tabs"${crosspost_open_tabs ? ' checked' : ''}>Open crossposts in new tab?</label>
-                `
+                `;
             const btn = document.createElement('button');
             btn.innerText = 'Save';
             settings_div.appendChild(btn);
-            btn.addEventListener('click', function(e) {
+            btn.addEventListener('click', function() {
 
                 mastodon_instance_url = settings_div.querySelector('[name="mastodon_instance_url"]').value;
                 mastodon_api_key = settings_div.querySelector('[name="mastodon_api_key"]').value;
@@ -551,7 +553,7 @@
         div.className = 'bsky-nav';
         div.appendChild(a);
         nav.appendChild(div);
-    }
+    };
 
     /*
      * Adds new Bluesky and Mastodon checkboxes to post toolbars
@@ -601,7 +603,7 @@
         span_b.innerText = 'Bluesky';
         label_b.appendChild(span_b);
         toolbar.appendChild(label_b);
-    }
+    };
 
     /*
      * Intercepts post requests, possibly first posts to Mastodon and/or Bluesky, then to Twitter/X.
@@ -682,7 +684,10 @@
             // Bluesky
             if (bsky_crosspost_enabled && bsky_crosspost_checked)
             {
-                let post_images = null;
+                const post_images = {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [],
+                };
                 let post_card = null;
 
                 try {
@@ -699,28 +704,20 @@
                     const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
                     if (div_attachments)
                     {
-                        const images = div_attachments.querySelectorAll('img');
-                        if (images.length)
+                        for (let img of div_attachments.querySelectorAll('img'))
                         {
-                            post_images = {
-                                '$type': 'app.bsky.embed.images',
-                                'images': [],
-                            };
-                            for (let img of images)
-                            {
-                                await bsky_client.upload_image(img)
-                                .then((res) => {
-                                    post_images.images.push({
-                                        alt: '',
-                                        image: res.blob
-                                    });
+                            await bsky_client.upload_image(img)
+                            .then((res) => {
+                                post_images.images.push({
+                                    alt: '',
+                                    image: res.blob
                                 });
-                            }
+                            });
                         }
                     }
 
                     // Get card (Bluesky only allows either images or card)
-                    if (!post_images && media_card && post_text.includes(media_card.url))
+                    if (!post_images.images.length && media_card && post_text.includes(media_card.url))
                     {
                         post_card = {
                             '$type': 'app.bsky.embed.external',
@@ -729,7 +726,7 @@
                                 title: media_card.title,
                                 description: media_card.description,
                             },
-                        }
+                        };
                         if (media_card.image)
                         {
                             await bsky_client.upload_image_by_url(media_card.image)
@@ -766,14 +763,14 @@
         {
             is_cross_posted = false;
         }
-    }
+    };
 
     GM_addStyle(css);
 
     /*
      * Observer that watches page for dynamic updates and injects elements and event handlers
      */
-    const pageObserver = new MutationObserver(mutations => {
+    const pageObserver = new MutationObserver(() => {
 
         const navbar = document.querySelector(NAV_SELECTOR);
         if (navbar && !navbar.querySelector('.bsky-nav'))
