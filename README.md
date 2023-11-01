@@ -1,4 +1,4 @@
-# twitter-to-bsky - crosspost from Twitter/X to Bluesky and Mastodon
+# twitter-to-bsky - crosspost from Twitter/X to Bluesky and Mastodon directly in the web browser
 
 twitter-to-bsky is a [userscript](https://en.wikipedia.org/wiki/Userscript) written for [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/get-it/) running in desktop web browsers (Chrome/Firefox/Edge).
 
