@@ -28,7 +28,10 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 * "Bluesky Handle" is your full handle, including ".bsky.social".
 * "Bluesky App Password" is **not** your main Bluesky password, but instead a so called "app password", in the Bluesky web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into this field and save the changes.
 
-## Screenshot
+## Screenshots
 
 *Twitter/X enhanced with crosspost elements*  
-![BSKY button with settings dialog](screenshots/crosspost-buttons.jpg)
+![Twitter/X enhanced with crosspost elements](screenshots/crosspost-buttons.jpg)
+
+*Settings dialog and system notifications (Windows 11)*  
+![Settings dialog and system notifications](screenshots/crosspost-settings-notifications.png)
