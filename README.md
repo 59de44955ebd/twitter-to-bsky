@@ -10,7 +10,7 @@ Crossposting obviously only makes sense for generic posts that e.g. link to a ne
 
 ## Features
 
-twitter-to-bsky supports plain text posts, posts with one or several attached media images and posts containing a media card, based on some entered URL. Note that videos/GIFs are not supported by Bluesky yet.
+twitter-to-bsky supports plain text posts, posts with one or several attached media files and posts containing a preview card, based on some entered URL. Note that Bluesky doesn't support videos/GIFs yet.
 
 ## Setup
 
@@ -30,8 +30,8 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 
 ## Screenshots
 
-*Twitter/X enhanced with crosspost elements*  
+*Twitter/X enhanced with crosspost elements*
 ![Twitter/X enhanced with crosspost elements](screenshots/crosspost-buttons.jpg)
 
-*Settings dialog and system notifications (Windows 11)*  
+*Settings dialog and system notifications (Windows 11)*
 ![Settings dialog and system notifications](screenshots/crosspost-settings-notifications.png)
