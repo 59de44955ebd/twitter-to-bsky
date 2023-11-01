@@ -1,10 +1,9 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.7
+// @version        0.8
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @namespace      59de44955ebd
-// @license        MIT
 // @match          https://twitter.com/*
 // @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
 // @resource       cross_icon https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
@@ -26,7 +25,7 @@
 (function() {
     'use strict';
 
-    // config
+    // Config
     const SHOW_NOTIFICATIONS = true;
 
     const NAV_SELECTOR = 'header nav[role="navigation"]:not(.bsky-navbar)';
@@ -58,7 +57,7 @@
   display: block;
 }
 .bsky-nav a:after {
-  content: "Bluesky";
+  content: "Crosspost";
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 20px;
   margin-left: 46px;
@@ -120,14 +119,14 @@
 }
 */
 `
-    // mastodon stuff
+    // Mastodon stuff
     let mastodon_client = null;
     let mastodon_instance_url = GM_getValue('mastodon_instance_url', 'https://mastodon.social');
     let mastodon_api_key = GM_getValue('mastodon_api_key', '');
     let mastodon_crosspost_enabled = mastodon_instance_url != '' && mastodon_api_key != '';
     let mastodon_crosspost_checked = GM_getValue('mastodon_crosspost_checked', false);
 
-    // bluesky stuff
+    // Bluesky stuff
     let bsky_client = null;
     let bsky_handle = GM_getValue('bsky_handle', '');
     let bsky_app_password = GM_getValue('bsky_app_password', '');
@@ -155,7 +154,7 @@
 
     class Mastodon
     {
-        // all parameters optional
+        // Parameters are optional
         constructor(mastodon_api_root_url, mastodon_api_key)
         {
             this._mastodon_api_root_url = mastodon_api_root_url;
@@ -273,7 +272,7 @@
 
     class BSKY
     {
-        // all parameters optional
+        // All parameters are optional
         constructor(bsky_handle, bsky_app_password, bsky_session)
         {
             this._bsky_handle = bsky_handle;
@@ -339,7 +338,7 @@
             });
         }
 
-        // utility function
+        // Utility function
         async verify_session()
         {
             if (this._session)
@@ -468,7 +467,7 @@
     }
 
     /*
-     * Adds BSKY icon for changing settings to navbar.
+     * Adds new cross icon to navbar for changing crosspost settings.
      */
     const extend_navbar = function(nav)
     {
@@ -527,7 +526,7 @@
                 mastodon_client.set_credentials(mastodon_instance_url, mastodon_api_key);
                 mastodon_crosspost_enabled = mastodon_instance_url != '' && mastodon_api_key != '';
 
-              // update disabled state of all checkboxes
+                // Update disabled state of all checkboxes
                 for (let el of document.querySelectorAll('.mastodon-checkbox input'))
                 {
                     el.disabled = !mastodon_crosspost_enabled;
@@ -536,7 +535,7 @@
                 bsky_client.set_credentials(bsky_handle, bsky_app_password);
                 bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
 
-                // update disabled state of all checkboxes
+                // Update disabled state of all checkboxes
                 for (let el of document.querySelectorAll('.bsky-checkbox input'))
                 {
                     el.disabled = !bsky_crosspost_enabled;
@@ -554,9 +553,9 @@
     }
 
     /*
-     * Adds new BSKY checkbox button to post toolbars.
+     * Adds new Bluesky and Mastodon checkboxes to post toolbars
      */
-    const create_bsky_checkbox = function(toolbar)
+    const create_crosspost_checkboxes = function(toolbar)
     {
         const label_m = document.createElement('label');
         label_m.className = 'cross-checkbox mastodon-checkbox';
@@ -604,7 +603,7 @@
     }
 
     /*
-     * Intercepts post requests, possibly first posts to BSKY, then to Twitter/X.
+     * Intercepts post requests, possibly first posts to Mastodon and/or Bluesky, then to Twitter/X.
      */
     const post_button_handler = async function(e)
     {
@@ -617,7 +616,7 @@
 
         if (!is_cross_posted && ((mastodon_crosspost_enabled && mastodon_crosspost_checked) || (bsky_crosspost_enabled && bsky_crosspost_checked)))
         {
-            // first post to BSKY
+            // First crosspost
             e.stopPropagation();
 
             let post_text = '';
@@ -628,12 +627,12 @@
                 post_text = div_text.innerText;
             }
 
-            // mastodon
+            // Mastodon
             if (mastodon_crosspost_enabled && mastodon_crosspost_checked)
             {
                 try
                 {
-                    // get media attachments
+                    // Get media attachments
                     const media_ids = [];
                     const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
                     if (div_attachments)
@@ -679,7 +678,7 @@
                 }
             }
 
-            // bluesky
+            // Bluesky
             if (bsky_crosspost_enabled && bsky_crosspost_checked)
             {
                 let post_images = null;
@@ -695,7 +694,7 @@
                         GM_setValue('bsky_session', session);
                     });
 
-                    // get images
+                    // Get images
                     const div_attachments = document.querySelector(POST_ATTACHMENTS_SELECTOR);
                     if (div_attachments)
                     {
@@ -719,7 +718,7 @@
                         }
                     }
 
-                    // get card (Bluesky only allows either images or card)
+                    // Get card (Bluesky only allows either images or card)
                     if (!post_images && media_card && post_text.includes(media_card.url))
                     {
                         post_card = {
@@ -759,7 +758,7 @@
 
             is_cross_posted = true;
 
-            // now forward click event to Twitter/X
+            // Now forward click event to actually post on Twitter/X
             this.click();
         }
         else
@@ -788,7 +787,7 @@
         {
             debug('POST_TOOLBAR found');
             toolbar.classList.toggle('bsky-toolbar', true);
-            create_bsky_checkbox(toolbar);
+            create_crosspost_checkboxes(toolbar);
         }
 
         const button = document.querySelector(POST_BUTTON_SELECTOR);
@@ -805,7 +804,7 @@
     mastodon_client = new Mastodon(mastodon_instance_url, mastodon_api_key);
     bsky_client = new BSKY(bsky_handle, bsky_app_password, bsky_session);
 
-    // hook into native XMLHttpRequest to capture card data
+    // Hook into native XMLHttpRequest to capture card data
     unsafeWindow.XMLHttpRequest.prototype._open = unsafeWindow.XMLHttpRequest.prototype.open;
     unsafeWindow.XMLHttpRequest.prototype.open = function(...args) {
         if (args[1].includes('/cards/'))
