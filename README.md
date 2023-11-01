@@ -14,7 +14,7 @@ twitter-to-bsky supports plain text posts, posts with one or several attached me
 
 ## Setup
 
-Install and activate either the [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/get-it/) browser addon, then open [this URL - the userscript](https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js) in the browser and allow the addon to install it as new userscript.
+Install and activate either the [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/get-it/) browser addon, then open [this URL (the actual userscript)](https://github.com/59de44955ebd/twitter-to-bsky/raw/main/twitter-to-bsky.user.js) in the browser and allow the addon to install it as new userscript.
 
 If you now (re-)load the Twitter/X page, it will be "enhanced" with the following new elements:
 * a black cross button at the bottom of the navigation bar that allows to enter your Mastodon and/or Bluesky credentials in a small popup dialog (see details below).
