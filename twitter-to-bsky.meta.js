@@ -3,6 +3,7 @@
 // @version        0.8
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
+// @license        MIT
 // @namespace      59de44955ebd
 // @match          https://twitter.com/*
 // @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
