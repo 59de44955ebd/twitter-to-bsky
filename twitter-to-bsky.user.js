@@ -106,13 +106,19 @@
 }
 .bsky-settings input[type="text"],
 .bsky-settings input[type="url"],
-.bsky-settings input[type="password"],
-.bsky-settings label:nth-of-type(2)
+.bsky-settings input[type="password"]
 {
   display: block;
   box-sizing: border-box;
   width: 100%;
   margin-bottom: 10px
+}
+.bsky-settings label {
+    display: block;
+    cursor: pointer;
+}
+.bsky-settings label:nth-of-type(2) {
+    margin-bottom: 10px
 }
 `;
     // Mastodon stuff

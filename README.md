@@ -30,8 +30,8 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 
 ## Screenshots
 
-*Twitter/X enhanced with crosspost elements*
+*Twitter/X enhanced with crosspost elements*  
 ![Twitter/X enhanced with crosspost elements](screenshots/crosspost-buttons.jpg)
 
-*Settings dialog and system notifications (Windows 11)*
+*Settings dialog and system notifications (Windows 11)*  
 ![Settings dialog and system notifications](screenshots/crosspost-settings-notifications.png)
