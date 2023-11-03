@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.9
+// @version        0.10
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
@@ -29,8 +29,6 @@
     'use strict';
 
     // Config
-    const SHOW_NOTIFICATIONS = true;
-
     const NAV_SELECTOR = 'header nav[role="navigation"]:not(.bsky-navbar)';
     const POST_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > nav:not(.bsky-toolbar)';
     const POST_BUTTON_SELECTOR = 'div[data-testid="tweetButton"]:not(.bsky-button), div[data-testid="tweetButtonInline"]:not(.bsky-button)';
@@ -109,18 +107,13 @@
 .bsky-settings input[type="text"],
 .bsky-settings input[type="url"],
 .bsky-settings input[type="password"],
-.bsky-settings label
+.bsky-settings label:nth-of-type(2)
 {
   display: block;
   box-sizing: border-box;
   width: 100%;
   margin-bottom: 10px
 }
-/*
-.bsky-button {
-  background-color: #000099 !important;
-}
-*/
 `;
     // Mastodon stuff
     let mastodon_client = null;
@@ -137,6 +130,7 @@
     let bsky_crosspost_enabled = bsky_handle != '' && bsky_app_password != '';
     let bsky_crosspost_checked = GM_getValue('bsky_crosspost_checked', false);
 
+    let crosspost_show_notifications = GM_getValue('crosspost_show_notifications', true);
     let crosspost_open_tabs = GM_getValue('crosspost_open_tabs', false);
     let settings_div = null;
     let media_card = null;
@@ -149,7 +143,7 @@
 
     const notify = function(message)
     {
-        if (SHOW_NOTIFICATIONS)
+        if (crosspost_show_notifications)
         {
             GM_notification(message, 'twitter-to-bsky', icon_url);
         }
@@ -500,6 +494,7 @@
                     <input type="text" name="bsky_handle" placeholder="Bluesky Handle" autocomplete="section-bsky username" value="${bsky_handle}">
                     <input type="password" name="bsky_app_password" placeholder="Bluesky App Password" autocomplete="section-bsky current-password" value="${bsky_app_password}">
                 </fieldset>
+                <label><input type="checkbox" name="crosspost_show_notifications"${crosspost_show_notifications ? ' checked' : ''}>Show crosspost notifications?</label>
                 <label><input type="checkbox" name="crosspost_open_tabs"${crosspost_open_tabs ? ' checked' : ''}>Open crossposts in new tab?</label>
                 `;
             const btn = document.createElement('button');
@@ -513,6 +508,7 @@
                 bsky_handle = settings_div.querySelector('[name="bsky_handle"]').value;
                 bsky_app_password = settings_div.querySelector('[name="bsky_app_password"]').value;
 
+                crosspost_show_notifications = settings_div.querySelector('[name="crosspost_show_notifications"]').checked;
                 crosspost_open_tabs = settings_div.querySelector('[name="crosspost_open_tabs"]').checked;
 
                 document.body.removeChild(settings_div);
@@ -524,6 +520,7 @@
                 GM_setValue('bsky_handle', bsky_handle);
                 GM_setValue('bsky_app_password', bsky_app_password);
 
+                GM_setValue('crosspost_show_notifications', crosspost_show_notifications);
                 GM_setValue('crosspost_open_tabs', crosspost_open_tabs);
 
                 mastodon_client.set_credentials(mastodon_instance_url, mastodon_api_key);
