@@ -25,7 +25,7 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 * "Mastodon Access Token" is an access token that you can create in the Mastodon web app via Settings -> Development -> New application.
 
 ### Bluesky settings
-* "Bluesky Handle" is your full handle, including ".bsky.social".
+* "Bluesky Handle" is your full handle (including ".bsky.social", if this applies).
 * "Bluesky App Password" is **not** your main Bluesky password, but instead a so called "app password", in the Bluesky web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into this field and save the changes.
 
 ## Screenshots
