@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.10
+// @version        0.11
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
@@ -57,15 +57,22 @@
   background-size: cover;
   display: block;
 }
-.bsky-nav a:after {
-  content: "Crosspost";
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 20px;
-  margin-left: 46px;
-}
-@media (max-width: 1264px) {
+@media (min-width: 1265px) {
   .bsky-nav a:after {
-    display: none;
+    content: "Crosspost";
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    margin-left: 46px;
+    color: rgb(15, 20, 25);
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .bsky-nav a {
+    filter: invert(1);
+  }
+  .bsky-nav a:after {
+    font-weight: 500;
   }
 }
 .cross-checkbox {
@@ -74,7 +81,7 @@
 .cross-checkbox input {
   cursor: pointer;
 }
-.cross-checkbox  span {
+.cross-checkbox span {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-weight: bold;
   font-size: 11px;
@@ -88,7 +95,7 @@
 .bsky-settings {
   position: fixed;
   width: 280px;
-  background: white;
+  background: inherit;
   padding: 10px;
   border: 2px solid #0085FF;
   box-sizing: border-box;
@@ -117,8 +124,8 @@
     display: block;
     cursor: pointer;
 }
-.bsky-settings label:nth-of-type(2) {
-    margin-bottom: 10px
+.bsky-settings button {
+    margin-top: 10px
 }
 `;
     // Mastodon stuff
@@ -138,6 +145,7 @@
 
     let crosspost_show_notifications = GM_getValue('crosspost_show_notifications', true);
     let crosspost_open_tabs = GM_getValue('crosspost_open_tabs', false);
+
     let settings_div = null;
     let media_card = null;
     let is_cross_posted = false;
@@ -170,9 +178,9 @@
             this._mastodon_api_key = mastodon_api_key;
         }
 
-        async upload_image(image_object)
+        async upload_image(image_url)
         {
-            return fetch(image_object.src)
+            return fetch(image_url)
             .then(res => res.blob())
             .then(blob => {
                 if (blob.size > MASTODON_IMAGE_MAX_BYTES)
@@ -360,9 +368,9 @@
             }
         }
 
-        async upload_image(image_object)
+        async upload_image(image_url)
         {
-            return fetch(image_object.src)
+            return fetch(image_url)
             .then(res => res.blob())
             .then(blob => {
                 if (blob.size > BSKY_IMAGE_MAX_BYTES)
@@ -391,33 +399,6 @@
                     });
                 });
             });
-        }
-
-        async upload_image_by_url(image_url)
-        {
-            return fetch(image_url)
-            .then(res => res.blob())
-            .then(blob => new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: BSKY_PDS_URL + '/xrpc/com.atproto.repo.uploadBlob',
-                    headers: {
-                        'Content-Type': blob.type,
-                        'Authorization': 'Bearer ' + this._session.accessJwt,
-                    },
-                    fetch: true,
-                    data: blob,
-                    onload: (response) => {
-                        const res = JSON.parse(response.responseText);
-                        if (res.error)
-                        {
-                            reject(res.message);
-                        }
-                        resolve(res);
-                    },
-                    onerror: reject,
-                });
-            }));
         }
 
         async create_post(post_text, post_images, post_embed)
@@ -493,7 +474,7 @@
                 <fieldset>
                     <legend>Mastodon</legend>
                     <input type="url" name="mastodon_instance_url" placeholder="Mastodon Instance URL" autocomplete="section-mastodon url" value="${mastodon_instance_url}">
-                    <input type="password" name="mastodon_api_key" placeholder="Mastodon API Key (access token)" autocomplete="section-mastodon current-password" value="${mastodon_api_key}">
+                    <input type="password" name="mastodon_api_key" placeholder="Mastodon Access Token" autocomplete="section-mastodon current-password" value="${mastodon_api_key}">
                 </fieldset>
                 <fieldset>
                     <legend>Bluesky</legend>
@@ -648,7 +629,7 @@
                         {
                             for (let img of images)
                             {
-                                await mastodon_client.upload_image(img)
+                                await mastodon_client.upload_image(img.src)
                                 .then((res) => {
                                     media_ids.push(res.id);
                                 });
@@ -709,7 +690,7 @@
                     {
                         for (let img of div_attachments.querySelectorAll('img'))
                         {
-                            await bsky_client.upload_image(img)
+                            await bsky_client.upload_image(img.src)
                             .then((res) => {
                                 post_images.images.push({
                                     alt: '',
@@ -732,7 +713,7 @@
                         };
                         if (media_card.image)
                         {
-                            await bsky_client.upload_image_by_url(media_card.image)
+                            await bsky_client.upload_image(media_card.image)
                             .then((res) => {
                                 post_card.external.thumb = res.blob;
                                 // post_text = post_text.replace(media_card.url, '');

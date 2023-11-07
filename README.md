@@ -22,7 +22,7 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 
 ### Mastodon settings
 * "Mastodon Instance URL" is the base URL of your Mastodon instance, e.g. "https://mastodon.social".
-* "Mastodon API Key" is an access token that you can create in the Mastodon web app via Settings -> Development -> New application.
+* "Mastodon Access Token" is an access token that you can create in the Mastodon web app via Settings -> Development -> New application.
 
 ### Bluesky settings
 * "Bluesky Handle" is your full handle, including ".bsky.social".
