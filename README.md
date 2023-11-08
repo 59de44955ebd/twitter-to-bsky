@@ -28,6 +28,9 @@ If you now (re-)load the Twitter/X page, it will be "enhanced" with the followin
 * "Bluesky Handle" is your full handle (including ".bsky.social", if this applies).
 * "Bluesky App Password" is **not** your main Bluesky password, but instead a so called "app password", in the Bluesky web app navigate to Settings -> Advanced -> App Passwords and create a new app password with a single click, then copy it and paste it into this field and save the changes.
 
+## Known limitation
+While the script works fine with Chrome + Violentmonkey, the combination Firefox + Violentmonkey unfortunately has issues, about every other time the script is blocked due to CSP. This does not happen when using Tampermonkey, so for Firefox it's recommended to use Tampermonkey instead.
+
 ## Screenshots
 
 *Twitter/X enhanced with crosspost elements*  
