@@ -2,7 +2,7 @@
 
 twitter-to-bsky is a [userscript](https://en.wikipedia.org/wiki/Userscript) written for [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/get-it/) running in desktop web browsers (Chrome/Firefox/Edge).
 
-It allows to automatically crosspost to [Bluesky](https://bsky.app/) and/or [Mastodon]() when writing posts in the [Twitter/X](https://twitter.com/) web application in a desktop browser.
+It allows to automatically crosspost to [Bluesky](https://bsky.app/) and/or [Mastodon](https://joinmastodon.org/) when writing posts in the [Twitter/X](https://twitter.com/) web application in a desktop browser.
 
 While crossposting is generally considered a bad practice, in this case it makes sense, its purpose is to ease the transistion from X to Bluesky or Mastodon while there a still many users left that havn't followed on the new platform yet.
 
