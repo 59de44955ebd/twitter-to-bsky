@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.12
+// @version        0.13
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
@@ -45,6 +45,8 @@
     const MASTODON_VIDEO_MAX_BYTES = 40000000; // 40 MB
 
     const icon_url = GM_getResourceURL('cross_icon', false);
+
+    const RE_HASHTAG = /#\w+/g;
 
     const css = `
 .bsky-nav {
@@ -459,6 +461,25 @@
                 post.embed = post_embed;
             }
 
+            // Minimal hashtag support (fails for non-western unicode characters in hashtag)
+            const facets = [];
+            let res;
+            while ((res = RE_HASHTAG.exec(post_text)) !== null)
+            {
+                facets.push({
+                    index: {
+                      byteStart: res.index,
+                      byteEnd: res.index + res[0].length
+                    },
+                    features: [{
+                      $type: 'app.bsky.richtext.facet#tag',
+                      tag: post_text.substr(res.index + 1, res[0].length - 1)
+                    }]
+                });
+            }
+            if (facets.length)
+                post.facets = facets;
+              
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
