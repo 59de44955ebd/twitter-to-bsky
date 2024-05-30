@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.11
+// @version        0.12
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
 // @namespace      59de44955ebd
 // @match          https://twitter.com/*
+// @match          https://x.com/*
 // @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
 // @resource       cross_icon https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
 // @grant          GM_getResourceURL
@@ -31,14 +32,14 @@
     // Config
     const NAV_SELECTOR = 'header nav[role="navigation"]:not(.bsky-navbar)';
     const POST_TOOLBAR_SELECTOR = 'div[data-testid="toolBar"] > nav:not(.bsky-toolbar)';
-    const POST_BUTTON_SELECTOR = 'div[data-testid="tweetButton"]:not(.bsky-button), div[data-testid="tweetButtonInline"]:not(.bsky-button)';
+    const POST_BUTTON_SELECTOR = '[data-testid="tweetButton"]:not(.bsky-button), [data-testid="tweetButtonInline"]:not(.bsky-button)';
 
     const POST_TEXT_AREA_SELECTOR = '[data-testid="tweetTextarea_0"]';
     const POST_ATTACHMENTS_SELECTOR = '[data-testid="attachments"]';
 
     const BSKY_PDS_URL = 'https://bsky.social';
 
-    const BSKY_IMAGE_MAX_BYTES = 1000000; // 10 MB
+    const BSKY_IMAGE_MAX_BYTES = 1000000; // 1 MB only!
 
     const MASTODON_IMAGE_MAX_BYTES = 8000000; // 8 MB
     const MASTODON_VIDEO_MAX_BYTES = 40000000; // 40 MB
@@ -162,6 +163,41 @@
             GM_notification(message, 'twitter-to-bsky', icon_url);
         }
     };
+
+    /*
+     * Scales image to fit into 640x640, returns jpeg blob.
+     */
+    const resize_image = function(image_blob)
+    {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {    	
+                const img = document.createElement('img');
+                img.addEventListener('load', () => {
+                    if (img.width == 0 || img.height == 0)
+                    {
+                        reject('Failed to scale image');
+                    }
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (img.width >= img.height)
+                    {
+                        canvas.width = 640;
+                        canvas.height = 640 * img.height / img.width;
+                    }
+                    else
+                    {
+                        canvas.width = 640 * img.width / img.height;
+                        canvas.height = 640;
+                    }
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);				
+                    canvas.toBlob(resolve, 'image/jpeg', 0.7);
+                });
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(image_blob);
+        });
+    }
 
     class Mastodon
     {
@@ -375,7 +411,8 @@
             .then(blob => {
                 if (blob.size > BSKY_IMAGE_MAX_BYTES)
                 {
-                    throw new Error(`Size of image ${blob.name} exceeds max. allowed size (${BSKY_IMAGE_MAX_BYTES})`);
+                    //throw new Error(`Size of image ${blob.name} exceeds max. allowed size (${BSKY_IMAGE_MAX_BYTES})`);
+                    blob = resize_image(blob);
                 }
                 return new Promise((resolve, reject) => {
                     GM_xmlhttpRequest({
@@ -450,6 +487,7 @@
         }
     }
 
+    
     /*
      * Adds new cross icon to navbar for changing crosspost settings.
      */
@@ -652,7 +690,7 @@
                     await mastodon_client.create_post(post_text, media_ids)
                     .then((res) => {
                         notify('Post was successfully crossposted to Mastodon');
-                        if (crosspost_open_tabs && res.uri)
+                        if (crosspost_open_tabs && res.url)
                         {
                             GM_openInTab(res.url, {active: true});
                         }

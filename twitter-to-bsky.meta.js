@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.11
+// @version        0.12
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
 // @namespace      59de44955ebd
 // @match          https://twitter.com/*
+// @match          https://x.com/*
 // @icon           https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
 // @resource       cross_icon https://raw.githubusercontent.com/59de44955ebd/twitter-to-bsky/main/cross-64x64.png
 // @grant          GM_getResourceURL
