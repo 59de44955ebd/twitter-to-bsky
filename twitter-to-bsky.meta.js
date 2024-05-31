@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.13
+// @version        0.14
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT

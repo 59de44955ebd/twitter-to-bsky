@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           twitter-to-bsky
-// @version        0.13
+// @version        0.14
 // @description    Crosspost from Twitter/X to Bluesky and Mastodon
 // @author         59de44955ebd
 // @license        MIT
@@ -152,6 +152,8 @@
     let settings_div = null;
     let media_card = null;
     let is_cross_posted = false;
+
+    let current_post_button = null;
 
     const debug = function(...toLog)
     {
@@ -478,8 +480,10 @@
                 });
             }
             if (facets.length)
+            {
                 post.facets = facets;
-              
+            }
+
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: "POST",
@@ -508,7 +512,6 @@
         }
     }
 
-    
     /*
      * Adds new cross icon to navbar for changing crosspost settings.
      */
@@ -837,6 +840,7 @@
             debug('POST_BUTTON found');
             button.classList.toggle('bsky-button', true);
             button.addEventListener('click', post_button_handler, true);
+            current_post_button = button;
         }
     });
 
@@ -868,5 +872,17 @@
         }
         this._open(...args);
     };
+
+    // allow cross-positing via Ctrl+Enter shortcut
+    document.addEventListener('keydown', (e) => {
+        if (current_post_button && e.key == "Enter" && e.ctrlKey)
+        {
+            e.stopPropagation();
+            if (!e.repeat)
+            {
+                current_post_button.click();
+            }
+        }
+    }, true);
 
 })();
