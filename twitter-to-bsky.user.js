@@ -873,7 +873,7 @@
         this._open(...args);
     };
 
-    // allow cross-positing via Ctrl+Enter shortcut
+    // allow cross-posting via Ctrl+Enter shortcut
     document.addEventListener('keydown', (e) => {
         if (current_post_button && e.ctrlKey && e.key == "Enter" )
         {
