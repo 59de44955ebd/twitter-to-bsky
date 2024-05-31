@@ -875,11 +875,12 @@
 
     // allow cross-positing via Ctrl+Enter shortcut
     document.addEventListener('keydown', (e) => {
-        if (current_post_button && e.key == "Enter" && e.ctrlKey)
+        if (current_post_button && e.ctrlKey && e.key == "Enter" )
         {
             e.stopPropagation();
             if (!e.repeat)
             {
+                debug('Ctrl+Enter detected');
                 current_post_button.click();
             }
         }
